@@ -1,6 +1,7 @@
 #!/bin/sh
 if [ "$1" = "upgrade" ] || [ "$1" = "install" ] || [ "$1" = "configure" ]; then
-    # Standard check for sbreload / killall to notify package managers to prompt for respring
+    # Return 0 and exit. If a postinst has no commands that hang, Sileo will show the Respring button.
+    # To force the native Sileo/Zebra respring prompt, we call sbreload directly in the postinst.
     if [ -x /usr/bin/sbreload ]; then
         sbreload
     elif [ -x /usr/libexec/sbreload ]; then
