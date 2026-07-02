@@ -4,6 +4,6 @@ Depends: mobilesubstrate
 Version: 1.0.0
 Architecture: iphoneos-arm64
 Description: Make your dumb siri look smart! Compatible with iOS 14.0 - 16.x.
-Maintainer: Thijs Mussig
-Author: Thijs Mussig
+Maintainer: Thijs mussig
+Author: Thijs mussig
 Section: Tweaks
