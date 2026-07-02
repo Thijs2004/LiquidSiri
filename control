@@ -3,7 +3,7 @@ Name: LiquidSiri
 Depends: mobilesubstrate
 Version: 1.0.0
 Architecture: iphoneos-arm64
-Description: Liquid Glass Siri for iOS 16
-Maintainer: Antigravity
-Author: Antigravity
+Description: Make your dumb siri look smart! Compatible with iOS 14.0 - 16.x.
+Maintainer: Thijs Mussig
+Author: Thijs Mussig
 Section: Tweaks
