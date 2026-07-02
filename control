@@ -1,0 +1,9 @@
+Package: com.yourcompany.liquidsiri
+Name: LiquidSiri
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Liquid Glass Siri for iOS 16
+Maintainer: Antigravity
+Author: Antigravity
+Section: Tweaks

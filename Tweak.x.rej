@@ -1,0 +1,34 @@
+@@ -2506,20 +2506,7 @@
+     });
+     
+     // Start audio polling in SpringBoard
+-    if (!springboardPollingTimer) {
+-        springboardPollingTimer = [NSTimer scheduledTimerWithTimeInterval:0.033 repeats:YES block:^(NSTimer * _Nonnull timer) {
+-            uint64_t state = 0;
+-            notify_get_state(siriNotifyToken, &state);
+-            float powerFloat = 0;
+-            memcpy(&powerFloat, &state, sizeof(float));
+-            
+-            // Only pass non-zero values to avoid overwriting idle state
+-            if (powerFloat > 0.001) {
+-                [[WaveManager shared] setTargetPower:(double)powerFloat];
+-            }
+-        }];
+-        [[NSRunLoop mainRunLoop] addTimer:springboardPollingTimer forMode:NSRunLoopCommonModes];
+-    }
++    [[WaveManager shared] startRecording];
+ }
+ 
+ - (void)viewDidDisappear:(BOOL)animated {
+@@ -2527,10 +2514,7 @@
+     LG_unregisterGlassView(siriGlass, LGUpdateGroupAll);
+     [siriGlass removeFromSuperview];
+     siriGlass = nil;
+-    if (springboardPollingTimer) {
+-        [springboardPollingTimer invalidate];
+-        springboardPollingTimer = nil;
+-    }
++    [[WaveManager shared] stopRecording];
+ }
+ 
+ - (void)viewWillLayoutSubviews {
