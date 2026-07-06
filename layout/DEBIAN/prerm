@@ -1,3 +1,0 @@
-#!/bin/sh
-# Returning 0 cleanly allows Sileo/Zebra to show their native "Respring Device" buttons when uninstalling
-exit 0

@@ -11,3 +11,5 @@ LiquidSiri_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable
 LiquidSiri_FRAMEWORKS = UIKit Foundation SwiftUI AVFoundation Accelerate AudioToolbox
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+SUBPROJECTS += liquidsiriprefs
+include $(THEOS_MAKE_PATH)/aggregate.mk
