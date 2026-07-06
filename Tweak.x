@@ -479,3 +479,18 @@ static void sendPowerToSpringBoard(float level) {
 }
 
 %end
+%ctor {
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    BOOL isEnabled = YES;
+    if (prefs && prefs[@"enabled"] != nil) {
+        isEnabled = [prefs[@"enabled"] boolValue];
+    } else {
+        NSDictionary *prefsRootless = [NSDictionary dictionaryWithContentsOfFile:@"/var/jb/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+        if (prefsRootless && prefsRootless[@"enabled"] != nil) {
+            isEnabled = [prefsRootless[@"enabled"] boolValue];
+        }
+    }
+    if (isEnabled) {
+        %init;
+    }
+}
