@@ -156,5 +156,9 @@ fragment half4 siriFragmentShader(VertexOut in [[stage_in]], constant Uniforms &
     // Return premultiplied alpha or solid color?
     // Since we blend over black glass, returning alpha=1 is fine, or we can return alpha=max(col).
     // Let's just output solid color with blending handled by MTKView or SwiftUI ZStack.
+    
+    // Make wave colors slightly more vibrant
+    col *= 1.15f;
+    
     return half4(half3(col), 1.0);
 }
