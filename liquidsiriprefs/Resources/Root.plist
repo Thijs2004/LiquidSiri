@@ -26,6 +26,64 @@
 			<key>cell</key>
 			<string>PSGroupCell</string>
 			<key>label</key>
+			<string>Appearance</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>label</key>
+			<string>Vertical Position (Y Offset)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>0</real>
+			<key>defaults</key>
+			<string>com.yourcompany.liquidsiri.prefs</string>
+			<key>key</key>
+			<string>yOffset</string>
+			<key>min</key>
+			<real>-100</real>
+			<key>max</key>
+			<real>100</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>label</key>
+			<string>Orb Size (Scale)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>1.0</real>
+			<key>defaults</key>
+			<string>com.yourcompany.liquidsiri.prefs</string>
+			<key>key</key>
+			<string>orbScale</string>
+			<key>min</key>
+			<real>0.5</real>
+			<key>max</key>
+			<real>1.5</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSButtonCell</string>
+			<key>action</key>
+			<string>resetSliders</string>
+			<key>label</key>
+			<string>Reset Position &amp; Size</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>label</key>
 			<string>Apply Changes</string>
 		</dict>
 		<dict>

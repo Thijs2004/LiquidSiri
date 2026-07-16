@@ -12,6 +12,23 @@
     return _specifiers;
 }
 
+- (void)resetSliders {
+    // Write directly to NSUserDefaults
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.yourcompany.liquidsiri.prefs"];
+    [defaults setFloat:0.0 forKey:@"yOffset"];
+    [defaults setFloat:1.0 forKey:@"orbScale"];
+    [defaults synchronize];
+    
+    // Also explicitly write to rootless path to be completely safe on modern jailbreaks
+    NSString *rootlessPath = @"/var/jb/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist";
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithContentsOfFile:rootlessPath] ?: [NSMutableDictionary dictionary];
+    dict[@"yOffset"] = @(0.0);
+    dict[@"orbScale"] = @(1.0);
+    [dict writeToFile:rootlessPath atomically:YES];
+    
+    [self reloadSpecifiers];
+}
+
 - (void)respring {
     pid_t pid;
     const char* args[] = {"sbreload", NULL};

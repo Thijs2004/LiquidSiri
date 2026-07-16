@@ -14,6 +14,12 @@
 @interface SiriBackdropCaptureView : UIView
 @end
 
+@interface MTMaterialView : UIView
+@end
+
+static void sendPowerToSpringBoard(float level);
+static NSInteger globalSiriState = 1;
+
 @implementation SiriBackdropCaptureView
 + (Class)layerClass { return NSClassFromString(@"CABackdropLayer") ?: [CALayer class]; }
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -39,6 +45,7 @@
 @property (nonatomic, strong) LiquidGlassView *glassOrbView;
 @property (nonatomic, strong) SiriBackdropCaptureView *backdropView;
 @property (nonatomic, strong) UIView *glowLineView;
+@property (nonatomic, strong) UIView *externalWhiteGlowView;
 @property (nonatomic, strong) UIImage *capturedWallpaper;
 @property (nonatomic, assign) BOOL hasCapturedBackdrop;
 @end
@@ -51,7 +58,42 @@ void LG_redrawRegisteredGlassViews(LGUpdateGroup group) {}
 %hook SUICOrbView
 
 - (id)initWithFrame:(CGRect)arg1 {
-    return %orig(CGRectMake(0, 0, 0, 0)); // Hide default Siri orb
+    id view = %orig(arg1);
+    if ([view isKindOfClass:[UIView class]]) {
+        [(UIView *)view setAlpha:0.0];
+    }
+    return view;
+}
+
+- (void)setMode:(NSInteger)mode {
+    %orig;
+    globalSiriState = mode;
+}
+
+- (void)setPowerLevel:(float)arg1 {
+    %orig;
+    float level = arg1;
+    
+    BOOL speaking = NO;
+    if (globalSiriState == 3) {
+        speaking = YES;
+    }
+    
+    @try {
+        id audioSession = [NSClassFromString(@"AVAudioSession") sharedInstance];
+        if (audioSession) {
+            NSString *audioMode = [audioSession valueForKey:@"mode"];
+            if ([audioMode isEqualToString:@"VoicePrompt"]) {
+                speaking = YES;
+            }
+        }
+    } @catch (NSException *e) {}
+    
+    if (speaking) {
+        level = 0.0;
+    }
+    
+    sendPowerToSpringBoard(level);
 }
 
 %end
@@ -93,6 +135,7 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
 %property (nonatomic, strong) LiquidGlassView *glassOrbView;
 %property (nonatomic, strong) SiriBackdropCaptureView *backdropView;
 %property (nonatomic, strong) UIView *glowLineView;
+%property (nonatomic, strong) UIView *externalWhiteGlowView;
 %property (nonatomic, strong) UIImage *capturedWallpaper;
 %property (nonatomic, assign) BOOL hasCapturedBackdrop;
 
@@ -128,10 +171,20 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     self.glassOrbView.layer.shadowRadius = 12;
     [self.view addSubview:self.glassOrbView];
     
-    // Siri wave container (made much taller to allow larger waves)
-    CGFloat waveHeight = 80.0;
-    CGFloat waveY = (height * 0.50) - (waveHeight / 2.0);
-    self.glowLineView = [[UIView alloc] initWithFrame:CGRectMake(0, waveY, width, waveHeight)];
+    // Add external white glow behind the bottom of the glass
+    self.externalWhiteGlowView = [[UIView alloc] initWithFrame:CGRectMake(orbFrame.origin.x + width * 0.15, orbFrame.origin.y + height - 35.0, width * 0.7, 30.0)];
+    self.externalWhiteGlowView.backgroundColor = [UIColor clearColor]; // Clear background to hide the solid shape
+    UIBezierPath *shadowPath = [UIBezierPath bezierPathWithOvalInRect:self.externalWhiteGlowView.bounds];
+    self.externalWhiteGlowView.layer.shadowPath = shadowPath.CGPath;
+    self.externalWhiteGlowView.layer.shadowColor = [UIColor whiteColor].CGColor;
+    self.externalWhiteGlowView.layer.shadowOffset = CGSizeZero;
+    self.externalWhiteGlowView.layer.shadowOpacity = 0.65; // Slightly dialed back opacity
+    self.externalWhiteGlowView.layer.shadowRadius = 12.0; // Tighter glow radius
+    self.externalWhiteGlowView.alpha = 0.0;
+    [self.view insertSubview:self.externalWhiteGlowView belowSubview:self.glassOrbView];
+    
+    // Siri wave container (expanded to the full orb size to prevent clipping the underglow)
+    self.glowLineView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, width, height)];
     self.glowLineView.backgroundColor = [UIColor clearColor];
     self.glowLineView.clipsToBounds = NO;
     [self.glassOrbView addSubview:self.glowLineView];
@@ -164,11 +217,11 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     CGFloat physicalY = 31.0;
     
     if (safeTop >= 59.0) {
-        // iPhone 14 Pro / 15 (Dynamic Island)
-        // Wraps the black dome seamlessly around the island
-        width = 160.0;
-        height = 140.0;
-        physicalY = 11.0;
+        // iPhone 14 Pro / 15 Pro Max (Dynamic Island)
+        // Wraps the black dome seamlessly around the island (made larger to fully hide it)
+        width = 180.0;
+        height = 148.0;
+        physicalY = 9.0;
     } else if (safeTop > 44.0) {
         // iPhone 12 / 13
         width = 144.0;
@@ -176,13 +229,34 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
         physicalY = 36.0;
     }
     
-    // Moved to Y=31 as requested
+    // Read user preferences directly so they apply immediately on Siri activation
+    NSDictionary *prefsRootless = [NSDictionary dictionaryWithContentsOfFile:@"/var/jb/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    NSDictionary *prefsMobile = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    NSDictionary *prefs = prefsRootless ?: prefsMobile;
+    
+    CGFloat customYOffset = 0.0;
+    CGFloat customScale = 1.0;
+    if (prefs) {
+        if (prefs[@"yOffset"] != nil) customYOffset = [prefs[@"yOffset"] floatValue];
+        if (prefs[@"orbScale"] != nil) customScale = [prefs[@"orbScale"] floatValue];
+    }
+    
+    width *= customScale;
+    height *= customScale;
+    physicalY += customYOffset;
+    
+    // Moved to Y=31 as requested, adjusted by settings
     CGFloat physicalX = (screenSize.width - width)/2.0;
     CGRect absoluteScreenFrame = CGRectMake(physicalX, physicalY, width, height);
     CGRect orbFrame = [self.view convertRect:absoluteScreenFrame fromCoordinateSpace:[UIScreen mainScreen].coordinateSpace];
     
     self.glassOrbView.frame = orbFrame; 
-    self.glassOrbView.cornerRadius = height / 2.0; 
+    self.glassOrbView.cornerRadius = height / 2.0;
+    
+    // Update the external white glow to match the new scaled/shifted orbFrame
+    self.externalWhiteGlowView.frame = CGRectMake(orbFrame.origin.x + width * 0.15, orbFrame.origin.y + height - (35.0 * customScale), width * 0.7, 30.0 * customScale);
+    UIBezierPath *newShadowPath = [UIBezierPath bezierPathWithOvalInRect:self.externalWhiteGlowView.bounds];
+    self.externalWhiteGlowView.layer.shadowPath = newShadowPath.CGPath;
     
     // Flawless Coordinate Math: Because the view is perfectly un-scaled and converted to local window coordinates,
     // LiquidGlassKit calculates the cardOrigin as the true absolute physical coordinate.
@@ -322,6 +396,7 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
             [UIView animateWithDuration:0.6 delay:0.0 usingSpringWithDamping:0.7 initialSpringVelocity:0.6 options:UIViewAnimationOptionCurveEaseOut animations:^{
                 self.glassOrbView.transform = CGAffineTransformIdentity;
                 self.glassOrbView.alpha = 1.0;
+                self.externalWhiteGlowView.alpha = 1.0;
             } completion:^(BOOL finished) {
                 // After popping in, start a gentle, infinite breathing animation to make the liquid feel alive
                 CABasicAnimation *breatheAnim = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
@@ -341,6 +416,7 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
         [UIView animateWithDuration:0.6 delay:0.0 usingSpringWithDamping:0.7 initialSpringVelocity:0.6 options:UIViewAnimationOptionCurveEaseOut animations:^{
             self.glassOrbView.transform = CGAffineTransformIdentity;
             self.glassOrbView.alpha = 1.0;
+            self.externalWhiteGlowView.alpha = 1.0;
         } completion:^(BOOL finished) {
             CABasicAnimation *breatheAnim = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
             breatheAnim.fromValue = @(1.0);
@@ -354,12 +430,15 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     }
     
     // Reposition wave line with much more vertical breathing room
-    CGFloat waveHeight = 80.0;
-    CGFloat waveY = (height * 0.50) - (waveHeight / 2.0);
-    self.glowLineView.frame = CGRectMake(0, waveY, width, waveHeight);
-    self.glowLineView.layer.sublayers = nil;
+    self.glowLineView.frame = CGRectMake(0, 0, width, height);
+    
+    // Completely remove old wave views to prevent stacking and off-center bugs when sliders change
+    for (UIView *subview in self.glowLineView.subviews) {
+        [subview removeFromSuperview];
+    }
     
     UIView *swiftWave = [[WaveManager shared] createWaveViewWithFrame:self.glowLineView.bounds];
+    swiftWave.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [WaveManager shared].power = 0.5; // Stronger resting state
     [self.glowLineView addSubview:swiftWave];
 }
@@ -370,6 +449,7 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     [UIView animateWithDuration:0.35 delay:0.0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         self.glassOrbView.transform = CGAffineTransformConcat(CGAffineTransformMakeTranslation(0, -50), CGAffineTransformMakeScale(0.6, 0.6));
         self.glassOrbView.alpha = 0.0;
+        self.externalWhiteGlowView.alpha = 0.0;
     } completion:nil];
 }
 
@@ -383,7 +463,7 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
 static int notifyToken = 0;
 
 static void sendPowerToSpringBoard(float level) {
-    [[WaveManager shared] setTargetPower:(double)level];
+    [[WaveManager shared] updateTargetPower:@(level)];
 }
 
 // -----------------------------------------------------------------------------
@@ -392,7 +472,44 @@ static void sendPowerToSpringBoard(float level) {
 // We attach a display link to the native views to ask
 // Removed duplicate interface declarations for SUICFlamesView because Logos generates them automatically
 
+// Removed duplicate interface declarations for SUICFlamesView because Logos generates them automatically
+
+
+
+%hook AFUISiriSession
+- (void)setState:(long long)state {
+    %orig;
+    if (state == 3) globalSiriState = 3;
+    else if (state == 1) globalSiriState = 1;
+}
+%end
+
+%hook VSSpeechSynthesizer
+- (id)startSpeakingRequest:(id)arg1 {
+    globalSiriState = 3;
+    return %orig;
+}
+- (id)stopSpeakingRequest:(id)arg1 {
+    globalSiriState = 1;
+    return %orig;
+}
+- (id)stopSpeakingAtNextBoundary:(long long)arg1 {
+    globalSiriState = 1;
+    return %orig;
+}
+%end
+
 %hook SUICFlamesView
+
+- (void)setState:(NSInteger)state {
+    %orig;
+    globalSiriState = state;
+}
+
+- (void)transitionToState:(NSInteger)state animated:(BOOL)animated {
+    %orig;
+    globalSiriState = state;
+}
 
 - (void)didMoveToWindow {
     %orig;
@@ -422,10 +539,48 @@ static void sendPowerToSpringBoard(float level) {
     if (delegate && [delegate respondsToSelector:@selector(audioLevelForFlamesView:)]) {
         float level = ((float (*)(id, SEL, id))objc_msgSend)(delegate, @selector(audioLevelForFlamesView:), self);
         
-        float punchyPower = powf(level * 10.0, 2.0);
-        float finalPower = MIN(2.5, punchyPower * 2.0);
+        @try {
+            BOOL speaking = NO;
+            
+            // Check global state
+            if (globalSiriState == 3) {
+                speaking = YES;
+            }
+            
+            // Check AVAudioSession mode (Siri uses VoicePrompt when speaking)
+            @try {
+                id audioSession = [NSClassFromString(@"AVAudioSession") sharedInstance];
+                if (audioSession) {
+                    NSString *audioMode = [audioSession valueForKey:@"mode"];
+                    if ([audioMode isEqualToString:@"VoicePrompt"]) {
+                        speaking = YES;
+                    }
+                }
+            } @catch (NSException *e) {}
+            
+            // Check delegate
+            if ([delegate respondsToSelector:@selector(isSpeaking)]) {
+                if ([[delegate valueForKey:@"isSpeaking"] boolValue]) speaking = YES;
+            }
+            
+            // Check inner flamesView
+            id checkView = objSelf;
+            if ([objSelf respondsToSelector:@selector(flamesView)]) {
+                checkView = [objSelf valueForKey:@"flamesView"];
+            }
+            if ([checkView respondsToSelector:@selector(state)]) {
+                NSInteger state = [[checkView valueForKey:@"state"] integerValue];
+                if (state == 3) {
+                    speaking = YES;
+                }
+            }
+            
+            if (speaking) {
+                level = 0.0;
+            }
+        } @catch (NSException *e) {}
         
-        sendPowerToSpringBoard(finalPower);
+        sendPowerToSpringBoard(level);
     }
 }
 
@@ -433,6 +588,11 @@ static void sendPowerToSpringBoard(float level) {
 
 %hook SiriUIFlamesView
 
+- (void)setState:(NSInteger)state {
+    %orig;
+    globalSiriState = state;
+}
+
 - (void)didMoveToWindow {
     %orig;
     UIView *viewSelf = (UIView *)self;
@@ -461,10 +621,48 @@ static void sendPowerToSpringBoard(float level) {
     if (delegate && [delegate respondsToSelector:@selector(audioLevelForFlamesView:)]) {
         float level = ((float (*)(id, SEL, id))objc_msgSend)(delegate, @selector(audioLevelForFlamesView:), self);
         
-        float punchyPower = powf(level * 10.0, 2.0);
-        float finalPower = MIN(2.5, punchyPower * 2.0);
+        @try {
+            BOOL speaking = NO;
+            
+            // Check global state
+            if (globalSiriState == 3) {
+                speaking = YES;
+            }
+            
+            // Check AVAudioSession mode (Siri uses VoicePrompt when speaking)
+            @try {
+                id audioSession = [NSClassFromString(@"AVAudioSession") sharedInstance];
+                if (audioSession) {
+                    NSString *audioMode = [audioSession valueForKey:@"mode"];
+                    if ([audioMode isEqualToString:@"VoicePrompt"]) {
+                        speaking = YES;
+                    }
+                }
+            } @catch (NSException *e) {}
+            
+            // Check delegate
+            if ([delegate respondsToSelector:@selector(isSpeaking)]) {
+                if ([[delegate valueForKey:@"isSpeaking"] boolValue]) speaking = YES;
+            }
+            
+            // Check inner flamesView
+            id checkView = objSelf;
+            if ([objSelf respondsToSelector:@selector(flamesView)]) {
+                checkView = [objSelf valueForKey:@"flamesView"];
+            }
+            if ([checkView respondsToSelector:@selector(state)]) {
+                NSInteger state = [[checkView valueForKey:@"state"] integerValue];
+                if (state == 3) {
+                    speaking = YES;
+                }
+            }
+            
+            if (speaking) {
+                level = 0.0;
+            }
+        } @catch (NSException *e) {}
         
-        sendPowerToSpringBoard(finalPower);
+        sendPowerToSpringBoard(level);
     }
 }
 
