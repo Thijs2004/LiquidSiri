@@ -4,6 +4,9 @@ struct ThickWaveShape: Shape {
     var phase: Double
     var power: Double
     var thicknessMultiplier: Double = 1.0
+    var frequency: Double = 1.0
+    var amplitudeMultiplier: Double = 1.0
+    var isTwisting: Bool = false
     
     var animatableData: AnimatablePair<Double, Double> {
         get { AnimatablePair(phase, power) }
@@ -16,17 +19,16 @@ struct ThickWaveShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let width = rect.width
-        let height = rect.height
-        let midY = height / 2.0
+        let referenceHeight = 80.0 // Keep wave size consistent regardless of canvas size
+        let midY = rect.height / 2.0
         
-        let frequency = 1.0 // One smooth sweeping wave
-        let maxAmplitude = height * 0.3
+        let maxAmplitude = referenceHeight * 0.3
         
         let currentPower = max(0.15, power)
-        let amplitude = maxAmplitude * currentPower
+        let amplitude = maxAmplitude * currentPower * amplitudeMultiplier
         
         // Base thickness for the filled band (made significantly thinner)
-        let maxThickness = height * 0.20 * thicknessMultiplier
+        let maxThickness = referenceHeight * 0.20 * thicknessMultiplier
         
         // Draw top curve (left to right)
         path.move(to: CGPoint(x: 0, y: midY))
@@ -39,8 +41,10 @@ struct ThickWaveShape: Shape {
             let angle = (normalizedX * .pi * 2.0 * frequency) + phase
             let sine = sin(angle)
             
+            let twistFactor = isTwisting ? abs(cos(angle)) : 1.0
+            
             let yCenter = midY + (sine * amplitude * attenuation)
-            let thickness = (maxThickness / 2.0) * attenuation
+            let thickness = (maxThickness / 2.0) * attenuation * (0.15 + 0.85 * twistFactor)
             
             // Top edge
             path.addLine(to: CGPoint(x: x, y: yCenter - thickness))
@@ -54,8 +58,10 @@ struct ThickWaveShape: Shape {
             let angle = (normalizedX * .pi * 2.0 * frequency) + phase
             let sine = sin(angle)
             
+            let twistFactor = isTwisting ? abs(cos(angle)) : 1.0
+            
             let yCenter = midY + (sine * amplitude * attenuation)
-            let thickness = (maxThickness / 2.0) * attenuation
+            let thickness = (maxThickness / 2.0) * attenuation * (0.15 + 0.85 * twistFactor)
             
             // Bottom edge
             path.addLine(to: CGPoint(x: x, y: yCenter + thickness))
@@ -68,47 +74,33 @@ struct ThickWaveShape: Shape {
 
 public struct SiriWaveView: View {
     @ObservedObject var manager = WaveManager.shared
-    @State private var phase: Double = 0.0
-    
-    private let verticalSpectrum = LinearGradient(
-        stops: [
-            .init(color: Color(red: 0.3, green: 0.7, blue: 1.0), location: 0.35), // Light blue (Top)
-            .init(color: Color(red: 0.4, green: 1.0, blue: 0.7), location: 0.45), // Mint green
-            .init(color: .white, location: 0.5),                                  // White (Center)
-            .init(color: Color(red: 1.0, green: 0.9, blue: 0.2), location: 0.55), // Yellow
-            .init(color: Color(red: 1.0, green: 0.1, blue: 0.1), location: 0.65)  // Red (Bottom)
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-    )
     
     public init() {}
+    
+    private var talkingFactor: Double {
+        // When bassLevel is > 0.15 (the idle level), we consider it talking.
+        let t = (manager.bassLevel - 0.15) * 8.0
+        return min(1.0, max(0.0, t))
+    }
     
     public var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Background wider wave - BASS
-                ThickWaveShape(phase: phase + 1.5, power: manager.bassLevel, thicknessMultiplier: 1.2)
-                    .fill(verticalSpectrum)
-                    .blur(radius: 3)
-                    .opacity(0.8)
+                // Use the custom Metal GLSL port wrapped in MTKView for iOS 14+ compatibility
+                SiriMetalView(talkingFactor: talkingFactor, phase: manager.phase)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .blendMode(.screen)
                 
-                // Middle weaving wave - MID
-                ThickWaveShape(phase: phase, power: manager.midLevel, thicknessMultiplier: 0.8)
-                    .fill(verticalSpectrum)
-                    .blur(radius: 1.5)
-                    .opacity(0.9)
-                
-                // Foreground sharp core wave - TREBLE
-                ThickWaveShape(phase: phase - 1.0, power: manager.trebleLevel, thicknessMultiplier: 0.25)
-                    .fill(verticalSpectrum)
+                // BOTTOM WHITE RIM GLOW (Matches the image's bottom glass reflection)
+                Ellipse()
+                    .fill(Color.white)
+                    .frame(width: geo.size.width * 0.7, height: 12)
+                    .blur(radius: 8)
+                    .opacity(0.6)
+                    .offset(y: (geo.size.height / 2.0) + 20.0)
             }
-            .onAppear {
-                withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
-                    phase = .pi * 2.0
-                }
-            }
+            .edgesIgnoringSafeArea(.all)
         }
-        .drawingGroup()
+        .edgesIgnoringSafeArea(.all)
     }
 }
