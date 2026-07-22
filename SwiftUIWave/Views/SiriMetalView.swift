@@ -214,14 +214,14 @@ public struct SiriMetalView: UIViewRepresentable {
                 float dCenter = length(uv);
                 float rim = smoothstep(0.75f, 0.95f, dCenter) * smoothstep(1.05f, 0.95f, dCenter);
                 
-                float normX = (uv.x + 1.0f) * 0.5f;
-                float3 c1 = float3(0.1f, 0.6f, 1.0f); // Cyan/Blue
-                float3 c2 = float3(0.6f, 1.0f, 0.4f); // Green/Yellow
-                float3 c3 = float3(1.0f, 0.2f, 0.5f); // Pink/Red
-                float3 rimColor = mix(mix(c1, c2, normX * 2.0f), mix(c2, c3, (normX - 0.5f) * 2.0f), step(0.5f, normX));
+                // Only reflect when talking
+                float talkBoost = clamp(talkingFactor * 3.0f, 0.0f, 1.0f);
                 
-                float reflectionIntensity = 0.4f + (talkingFactor * 0.3f);
-                col += rimColor * rim * reflectionIntensity;
+                // Bias towards the bottom and sides (not fully around the top)
+                float glassBias = max(0.0f, uv.y + abs(uv.x));
+                
+                // Use the live raw color of the wave for a highly realistic refraction
+                col += preFadeCol * rim * glassBias * talkBoost * 0.8f;
                 
                 return half4(half3(col), 1.0);
             }
