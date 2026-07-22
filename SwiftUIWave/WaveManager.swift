@@ -82,17 +82,16 @@ import AVFoundation
         // e.g. pow(0.5) was too aggressive, pow(0.7) gives a more natural ramp
         let boostedLevel = pow(linearLevel, 0.7)
         
-        // Strict deadzone at 0.15 on the boosted scale
-        let deadzone = 0.15
+        // Strict deadzone at 0.05 on the boosted scale so quiet sounds still register
+        let deadzone = 0.05
         let signal = max(0.0, boostedLevel - deadzone)
         
-        // Lower the multiplier so soft voices = small reaction, loud voices = large reaction
-        // (Previously 35.0 was causing it to max out instantly)
-        let targetVisualPower = 0.15 + min(4.0, signal * 12.0)
+        // Higher multiplier so soft voices = medium reaction, loud voices = large reaction
+        let targetVisualPower = 0.15 + min(4.0, signal * 18.0)
         
         // Smoothly interpolate power with an attack/release curve
-        // Faster attack when getting louder, slower release when getting quieter to prevent choppiness
-        let powerInterpolationBase = targetVisualPower > currentPower ? 0.01 : 0.15
+        // Extremely fast attack when getting louder (0.00001), slower release when getting quieter (0.15)
+        let powerInterpolationBase = targetVisualPower > currentPower ? 0.00001 : 0.15
         currentPower += (targetVisualPower - currentPower) * (1.0 - pow(powerInterpolationBase, dt))
         
         bassLevel = currentPower

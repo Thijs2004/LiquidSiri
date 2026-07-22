@@ -100,14 +100,14 @@ public struct SiriMetalView: UIViewRepresentable {
             constant float SPEED       = 2.4f;
             constant float WAVE_SCALE  = 0.6f;
             constant float ABERRATION  = 2.6f;
-            constant float THICKNESS   = 8.5f; // Made idle wave even thicker
-            constant float INTENSITY   = 1.8f; // Moderately lighter
+            constant float THICKNESS   = 0.5f; // Made extremely sharp/solid
+            constant float INTENSITY   = 2.0f; 
             constant float FALLOFF     = 0.8f; // Slightly more edge fading
             constant float EDGE_MASK   = 0.4f;
             constant float EDGE_INSET  = 0.0f;
             constant float BAND_FILL   = 25000.0f; // Moderately lighter
             constant float BAND_THICK  = 0.08f;
-            constant float SOFTNESS    = 2.5f;
+            constant float SOFTNESS    = 0.4f;
             constant float LOW_AMP     = 18.0f; // High enough for big waves
             constant float LOW_INT     = 1.5f;
             constant float MID_ABER    = 0.8f;
@@ -212,15 +212,16 @@ public struct SiriMetalView: UIViewRepresentable {
                 
                 // Add glass edge refraction/reflection
                 float dCenter = length(uv);
-                // Create a smooth ring near the edge (0.75 -> 1.0)
-                float rim = smoothstep(0.75f, 1.0f, dCenter) * smoothstep(1.1f, 0.95f, dCenter);
-                // Enhance the rim on the bottom and sides for a 3D glass look (uv.y is typically positive at bottom)
-                float glassBias = 0.5f + 0.5f * (uv.y + abs(uv.x));
-                float rimGlow = rim * glassBias * 1.2f * (1.0f - clamp(activeFactor * 1.5f, 0.0f, 1.0f));
+                float rim = smoothstep(0.75f, 0.95f, dCenter) * smoothstep(1.05f, 0.95f, dCenter);
                 
-                // Use the raw wave colors for the reflection so it looks natural, not white
-                float3 rimColor = preFadeCol * 0.7f;
-                col += rimColor * rimGlow;
+                float normX = (uv.x + 1.0f) * 0.5f;
+                float3 c1 = float3(0.1f, 0.6f, 1.0f); // Cyan/Blue
+                float3 c2 = float3(0.6f, 1.0f, 0.4f); // Green/Yellow
+                float3 c3 = float3(1.0f, 0.2f, 0.5f); // Pink/Red
+                float3 rimColor = mix(mix(c1, c2, normX * 2.0f), mix(c2, c3, (normX - 0.5f) * 2.0f), step(0.5f, normX));
+                
+                float reflectionIntensity = 0.4f + (talkingFactor * 0.3f);
+                col += rimColor * rim * reflectionIntensity;
                 
                 return half4(half3(col), 1.0);
             }
