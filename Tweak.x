@@ -48,6 +48,18 @@ static NSInteger globalSiriState = 1;
 @property (nonatomic, strong) UIView *externalWhiteGlowView;
 @property (nonatomic, strong) UIImage *capturedWallpaper;
 @property (nonatomic, assign) BOOL hasCapturedBackdrop;
+@property (nonatomic, strong) UIView *lgEditorPanel;
+@property (nonatomic, strong) UISlider *sliderWidth;
+@property (nonatomic, strong) UISlider *sliderHeight;
+@property (nonatomic, strong) UISlider *sliderScale;
+@property (nonatomic, strong) UISlider *sliderY;
+@property (nonatomic, strong) UISlider *sliderCorner;
+@property (nonatomic, strong) UISlider *sliderRefraction;
+- (void)liquidSiriToggleEditor:(UILongPressGestureRecognizer *)gesture;
+- (UISlider *)createSliderWithTitle:(NSString *)title min:(float)min max:(float)max val:(float)val y:(CGFloat)y inPanel:(UIView *)panel;
+- (void)liquidSiriSetupEditor;
+- (void)liquidSiriSaveSettings:(UIButton *)btn;
+- (void)liquidSiriSliderChanged:(UISlider *)slider;
 @end
 
 void LG_registerGlassView(UIView *view, LGUpdateGroup group) {}
@@ -138,9 +150,20 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
 %property (nonatomic, strong) UIView *externalWhiteGlowView;
 %property (nonatomic, strong) UIImage *capturedWallpaper;
 %property (nonatomic, assign) BOOL hasCapturedBackdrop;
+%property (nonatomic, strong) UIView *lgEditorPanel;
+%property (nonatomic, strong) UISlider *sliderWidth;
+%property (nonatomic, strong) UISlider *sliderHeight;
+%property (nonatomic, strong) UISlider *sliderScale;
+%property (nonatomic, strong) UISlider *sliderY;
+%property (nonatomic, strong) UISlider *sliderCorner;
+%property (nonatomic, strong) UISlider *sliderRefraction;
 
 - (void)viewDidLoad {
     %orig;
+    
+    UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(liquidSiriToggleEditor:)];
+    longPress.minimumPressDuration = 0.5;
+    [self.view addGestureRecognizer:longPress];
     
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGFloat width = 154.0;
@@ -192,6 +215,178 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     self.glassOrbView.alpha = 0.0;
 }
 
+%new
+- (void)liquidSiriToggleEditor:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state == UIGestureRecognizerStateBegan) {
+        if (!self.lgEditorPanel) {
+            [self liquidSiriSetupEditor];
+        }
+        
+        BOOL isHidden = self.lgEditorPanel.alpha < 0.5;
+        [UIView animateWithDuration:0.3 animations:^{
+            self.lgEditorPanel.alpha = isHidden ? 1.0 : 0.0;
+        }];
+    }
+}
+
+%new
+- (UISlider *)createSliderWithTitle:(NSString *)title min:(float)min max:(float)max val:(float)val y:(CGFloat)y inPanel:(UIView *)panel {
+    UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectMake(15, y, panel.bounds.size.width - 30, 20)];
+    lbl.text = title;
+    lbl.font = [UIFont systemFontOfSize:14];
+    [panel addSubview:lbl];
+    
+    UISlider *slider = [[UISlider alloc] initWithFrame:CGRectMake(15, y + 25, panel.bounds.size.width - 30, 30)];
+    slider.minimumValue = min;
+    slider.maximumValue = max;
+    slider.value = val;
+    [slider addTarget:self action:@selector(liquidSiriSliderChanged:) forControlEvents:UIControlEventValueChanged];
+    [panel addSubview:slider];
+    return slider;
+}
+
+%new
+- (void)liquidSiriSetupEditor {
+    CGFloat panelW = 240;
+    CGFloat panelH = 460;
+    UIView *panel = [[UIView alloc] initWithFrame:CGRectMake(self.view.bounds.size.width - panelW - 10, 80, panelW, panelH)];
+    panel.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.95];
+    panel.layer.cornerRadius = 20;
+    panel.layer.shadowColor = [UIColor blackColor].CGColor;
+    panel.layer.shadowOpacity = 0.3;
+    panel.layer.shadowRadius = 10;
+    panel.alpha = 0.0;
+    [self.view addSubview:panel];
+    self.lgEditorPanel = panel;
+    
+    UILabel *header = [[UILabel alloc] initWithFrame:CGRectMake(0, 15, panelW, 30)];
+    header.text = @"Liquid Glass Live Editor";
+    header.textAlignment = NSTextAlignmentCenter;
+    header.font = [UIFont boldSystemFontOfSize:18];
+    [panel addSubview:header];
+    
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    if (!prefs) prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/jb/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    
+    CGFloat curScale = prefs[@"orbScale"] ? [prefs[@"orbScale"] floatValue] : 1.0;
+    CGFloat curY = prefs[@"yOffset"] ? [prefs[@"yOffset"] floatValue] : 0.0;
+    CGFloat curW = prefs[@"customWidth"] ? [prefs[@"customWidth"] floatValue] : 1.0;
+    CGFloat curH = prefs[@"customHeight"] ? [prefs[@"customHeight"] floatValue] : 1.0;
+    CGFloat curCorner = prefs[@"customCorner"] ? [prefs[@"customCorner"] floatValue] : 1.0;
+    CGFloat curRefrac = prefs[@"customRefraction"] ? [prefs[@"customRefraction"] floatValue] : 1.4;
+
+    CGFloat y = 50;
+    self.sliderScale = [self createSliderWithTitle:@"整体 Scale" min:0.5 max:2.5 val:curScale y:y inPanel:panel]; y += 55;
+    self.sliderY = [self createSliderWithTitle:@"整体 Y 位置" min:-200 max:200 val:curY y:y inPanel:panel]; y += 55;
+    self.sliderWidth = [self createSliderWithTitle:@"宽 Width" min:0.5 max:2.5 val:curW y:y inPanel:panel]; y += 55;
+    self.sliderHeight = [self createSliderWithTitle:@"高 Height" min:0.5 max:2.5 val:curH y:y inPanel:panel]; y += 55;
+    self.sliderCorner = [self createSliderWithTitle:@"圆角 Corner Radius" min:0.0 max:2.0 val:curCorner y:y inPanel:panel]; y += 55;
+    self.sliderRefraction = [self createSliderWithTitle:@"强度 Refraction" min:0.0 max:5.0 val:curRefrac y:y inPanel:panel]; y += 65;
+
+    UIButton *saveBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    saveBtn.frame = CGRectMake(15, y, panelW - 30, 40);
+    saveBtn.backgroundColor = [UIColor colorWithRed:0.2 green:0.5 blue:1.0 alpha:1.0];
+    [saveBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [saveBtn setTitle:@"Save Settings" forState:UIControlStateNormal];
+    saveBtn.layer.cornerRadius = 10;
+    [saveBtn addTarget:self action:@selector(liquidSiriSaveSettings:) forControlEvents:UIControlEventTouchUpInside];
+    [panel addSubview:saveBtn];
+}
+
+%new
+- (void)liquidSiriSaveSettings:(UIButton *)btn {
+    NSMutableDictionary *prefs = [NSMutableDictionary dictionary];
+    NSDictionary *existing = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    if (!existing) existing = [NSDictionary dictionaryWithContentsOfFile:@"/var/jb/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
+    if (existing) { [prefs addEntriesFromDictionary:existing]; }
+    
+    prefs[@"orbScale"] = @(self.sliderScale.value);
+    prefs[@"yOffset"] = @(self.sliderY.value);
+    prefs[@"customWidth"] = @(self.sliderWidth.value);
+    prefs[@"customHeight"] = @(self.sliderHeight.value);
+    prefs[@"customCorner"] = @(self.sliderCorner.value);
+    prefs[@"customRefraction"] = @(self.sliderRefraction.value);
+    
+    [prefs writeToFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist" atomically:YES];
+    [prefs writeToFile:@"/var/jb/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist" atomically:YES];
+    
+    [btn setTitle:@"Saved!" forState:UIControlStateNormal];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [btn setTitle:@"Save Settings" forState:UIControlStateNormal];
+    });
+}
+
+%new
+- (void)liquidSiriSliderChanged:(UISlider *)slider {
+    CGSize screenSize = [UIScreen mainScreen].bounds.size;
+    CGFloat safeTop = self.view.safeAreaInsets.top;
+    if (safeTop == 0 && self.view.window) { safeTop = self.view.window.safeAreaInsets.top; }
+    
+    CGFloat baseW = 130.0;
+    CGFloat baseH = 105.0;
+    CGFloat physicalY = 31.0;
+    
+    if (safeTop >= 59.0) {
+        baseW = 180.0;
+        baseH = 148.0;
+        physicalY = 9.0;
+    } else if (safeTop > 44.0) {
+        baseW = 144.0;
+        baseH = 116.0;
+        physicalY = 36.0;
+    }
+    
+    CGFloat customScale = self.sliderScale.value;
+    CGFloat customYOffset = self.sliderY.value;
+    CGFloat customWidth = self.sliderWidth.value;
+    CGFloat customHeight = self.sliderHeight.value;
+    CGFloat customCorner = self.sliderCorner.value;
+    CGFloat customRefraction = self.sliderRefraction.value;
+    
+    CGFloat finalW = baseW * customScale * customWidth;
+    CGFloat finalH = baseH * customScale * customHeight;
+    CGFloat finalY = physicalY + customYOffset;
+    CGFloat physicalX = (screenSize.width - finalW) / 2.0;
+    
+    CGRect absoluteScreenFrame = CGRectMake(physicalX, finalY, finalW, finalH);
+    CGRect orbFrame = [self.view convertRect:absoluteScreenFrame fromCoordinateSpace:[UIScreen mainScreen].coordinateSpace];
+    
+    self.glassOrbView.frame = orbFrame;
+    self.glassOrbView.cornerRadius = (finalH / 2.0) * customCorner;
+    self.glassOrbView.refractionScale = customRefraction;
+    
+    self.externalWhiteGlowView.frame = CGRectMake(orbFrame.origin.x + finalW * 0.15, orbFrame.origin.y + finalH - (35.0 * customScale), finalW * 0.7, 30.0 * customScale);
+    UIBezierPath *newShadowPath = [UIBezierPath bezierPathWithOvalInRect:self.externalWhiteGlowView.bounds];
+    self.externalWhiteGlowView.layer.shadowPath = newShadowPath.CGPath;
+    
+    self.glowLineView.frame = CGRectMake(0, 0, finalW, finalH);
+    for (UIView *sub in self.glowLineView.subviews) {
+        sub.frame = self.glowLineView.bounds;
+    }
+    
+    for (CALayer *sub in [self.glassOrbView.layer.sublayers copy]) {
+        if ([sub isKindOfClass:[CAShapeLayer class]] && CGColorEqualToColor(((CAShapeLayer *)sub).fillColor, [UIColor colorWithWhite:0.0 alpha:0.95].CGColor)) {
+            CAShapeLayer *blackDomeLayer = (CAShapeLayer *)sub;
+            blackDomeLayer.frame = CGRectMake(0, 0, finalW, finalH);
+            
+            UIBezierPath *domePath = [UIBezierPath bezierPath];
+            [domePath moveToPoint:CGPointMake(0, 0)];
+            [domePath addLineToPoint:CGPointMake(finalW, 0)];
+            [domePath addLineToPoint:CGPointMake(finalW, finalH * 0.55)];
+            [domePath addQuadCurveToPoint:CGPointMake(0, finalH * 0.55) controlPoint:CGPointMake(finalW / 2.0, finalH * 0.52)];
+            [domePath closePath];
+            blackDomeLayer.path = domePath.CGPath;
+            
+            CAGradientLayer *fadeMask = (CAGradientLayer *)blackDomeLayer.mask;
+            if (fadeMask) {
+                fadeMask.frame = blackDomeLayer.bounds;
+            }
+        }
+    }
+    
+    [self.glassOrbView updateOrigin];
+}
+
 - (void)viewWillAppear:(BOOL)animated {
     %orig;
     
@@ -236,22 +431,31 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     
     CGFloat customYOffset = 0.0;
     CGFloat customScale = 1.0;
+    CGFloat customWidth = 1.0;
+    CGFloat customHeight = 1.0;
+    CGFloat customCorner = 1.0;
+    CGFloat customRefraction = 1.4;
+
     if (prefs) {
         if (prefs[@"yOffset"] != nil) customYOffset = [prefs[@"yOffset"] floatValue];
         if (prefs[@"orbScale"] != nil) customScale = [prefs[@"orbScale"] floatValue];
+        if (prefs[@"customWidth"] != nil) customWidth = [prefs[@"customWidth"] floatValue];
+        if (prefs[@"customHeight"] != nil) customHeight = [prefs[@"customHeight"] floatValue];
+        if (prefs[@"customCorner"] != nil) customCorner = [prefs[@"customCorner"] floatValue];
+        if (prefs[@"customRefraction"] != nil) customRefraction = [prefs[@"customRefraction"] floatValue];
     }
     
-    width *= customScale;
-    height *= customScale;
+    width *= customScale * customWidth;
+    height *= customScale * customHeight;
     physicalY += customYOffset;
     
-    // Moved to Y=31 as requested, adjusted by settings
     CGFloat physicalX = (screenSize.width - width)/2.0;
     CGRect absoluteScreenFrame = CGRectMake(physicalX, physicalY, width, height);
     CGRect orbFrame = [self.view convertRect:absoluteScreenFrame fromCoordinateSpace:[UIScreen mainScreen].coordinateSpace];
     
     self.glassOrbView.frame = orbFrame; 
-    self.glassOrbView.cornerRadius = height / 2.0;
+    self.glassOrbView.cornerRadius = (height / 2.0) * customCorner;
+    self.glassOrbView.refractionScale = customRefraction;
     
     // Update the external white glow to match the new scaled/shifted orbFrame
     self.externalWhiteGlowView.frame = CGRectMake(orbFrame.origin.x + width * 0.15, orbFrame.origin.y + height - (35.0 * customScale), width * 0.7, 30.0 * customScale);
