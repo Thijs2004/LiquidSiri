@@ -44,14 +44,14 @@ constant float ABER_FREQ   = 1.0f;
 constant float SPEED       = 2.4f;
 constant float WAVE_SCALE  = 0.6f;
 constant float ABERRATION  = 2.6f;
-constant float THICKNESS   = 3.0f;
+constant float THICKNESS   = 0.5f; // Was 2.0f (lower = much thicker/brighter core)
 constant float INTENSITY   = 2.0f;
 constant float FALLOFF     = 1.7f;
 constant float EDGE_MASK   = 0.4f;
 constant float EDGE_INSET  = 0.0f;
 constant float BAND_FILL   = 30000.0f;
 constant float BAND_THICK  = 0.08f;
-constant float SOFTNESS    = 2.5f;
+constant float SOFTNESS    = 0.4f; // Was 1.2f (lower = extremely sharp, almost zero diffuse glow)
 constant float LOW_AMP     = 6.0f;
 constant float LOW_INT     = 1.5f;
 constant float MID_ABER    = 0.8f;
@@ -153,9 +153,23 @@ fragment half4 siriFragmentShader(VertexOut in [[stage_in]], constant Uniforms &
     // In idle state, the GLSL looks a bit bright. Let's ensure it can fade slightly if needed
     col *= 0.5f + (talkingFactor * 0.5f); // 50% opacity in idle, 100% when talking
     
-    // Return premultiplied alpha or solid color?
-    // Since we blend over black glass, returning alpha=1 is fine, or we can return alpha=max(col).
-    // Let's just output solid color with blending handled by MTKView or SwiftUI ZStack.
+    // --- Glass Edge Reflection ---
+    float2 uvNorm = in.uv * 2.0f - 1.0f;
+    float r = length(uvNorm);
+    // Create a rim mask that peaks near the edge of the orb (0.85 to 0.98)
+    float rim = smoothstep(0.75f, 0.95f, r) * smoothstep(1.05f, 0.95f, r);
+    
+    // Generate a spectrum matching the waves for the reflection
+    float normX = (uvNorm.x + 1.0f) * 0.5f;
+    float3 c1 = float3(0.1f, 0.6f, 1.0f); // Cyan/Blue
+    float3 c2 = float3(0.6f, 1.0f, 0.4f); // Green/Yellow
+    float3 c3 = float3(1.0f, 0.2f, 0.5f); // Pink/Red
+    float3 rimColor = mix(mix(c1, c2, normX * 2.0f), mix(c2, c3, (normX - 0.5f) * 2.0f), step(0.5f, normX));
+    
+    // Multiply by a base reflection intensity, add to the final color
+    float reflectionIntensity = 0.4f + (talkingFactor * 0.3f);
+    col += rimColor * rim * reflectionIntensity;
+    // -----------------------------
     
     // Make wave colors slightly more vibrant
     col *= 1.15f;
