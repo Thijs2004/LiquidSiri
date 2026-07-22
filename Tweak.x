@@ -284,13 +284,33 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     self.sliderRefraction = [self createSliderWithTitle:@"强度 Refraction" min:0.0 max:5.0 val:curRefrac y:y inPanel:panel]; y += 65;
 
     UIButton *saveBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    saveBtn.frame = CGRectMake(15, y, panelW - 30, 40);
+    saveBtn.frame = CGRectMake(15, y, panelW/2 - 20, 40);
     saveBtn.backgroundColor = [UIColor colorWithRed:0.2 green:0.5 blue:1.0 alpha:1.0];
     [saveBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [saveBtn setTitle:@"Save Settings" forState:UIControlStateNormal];
+    [saveBtn setTitle:@"Save" forState:UIControlStateNormal];
     saveBtn.layer.cornerRadius = 10;
     [saveBtn addTarget:self action:@selector(liquidSiriSaveSettings:) forControlEvents:UIControlEventTouchUpInside];
     [panel addSubview:saveBtn];
+    
+    UIButton *resetBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    resetBtn.frame = CGRectMake(panelW/2 + 5, y, panelW/2 - 20, 40);
+    resetBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.3 blue:0.3 alpha:1.0];
+    [resetBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [resetBtn setTitle:@"Reset All" forState:UIControlStateNormal];
+    resetBtn.layer.cornerRadius = 10;
+    [resetBtn addTarget:self action:@selector(liquidSiriResetSettings:) forControlEvents:UIControlEventTouchUpInside];
+    [panel addSubview:resetBtn];
+}
+
+%new
+- (void)liquidSiriResetSettings:(UIButton *)btn {
+    self.sliderScale.value = 1.0;
+    self.sliderY.value = 0.0;
+    self.sliderWidth.value = 1.0;
+    self.sliderHeight.value = 1.0;
+    self.sliderCorner.value = 1.0;
+    self.sliderRefraction.value = 1.4;
+    [self liquidSiriSliderChanged:self.sliderScale];
 }
 
 %new
@@ -352,7 +372,9 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     CGRect orbFrame = [self.view convertRect:absoluteScreenFrame fromCoordinateSpace:[UIScreen mainScreen].coordinateSpace];
     
     self.glassOrbView.frame = orbFrame;
-    self.glassOrbView.cornerRadius = (finalH / 2.0) * customCorner;
+    CGFloat rawCorner = (finalH / 2.0) * customCorner;
+    CGFloat maxCorner = MIN(finalW, finalH) / 2.0;
+    self.glassOrbView.cornerRadius = MIN(rawCorner, maxCorner);
     self.glassOrbView.refractionScale = customRefraction;
     
     self.externalWhiteGlowView.frame = CGRectMake(orbFrame.origin.x + finalW * 0.15, orbFrame.origin.y + finalH - (35.0 * customScale), finalW * 0.7, 30.0 * customScale);
@@ -454,7 +476,9 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     CGRect orbFrame = [self.view convertRect:absoluteScreenFrame fromCoordinateSpace:[UIScreen mainScreen].coordinateSpace];
     
     self.glassOrbView.frame = orbFrame; 
-    self.glassOrbView.cornerRadius = (height / 2.0) * customCorner;
+    CGFloat rawCorner = (height / 2.0) * customCorner;
+    CGFloat maxCorner = MIN(width, height) / 2.0;
+    self.glassOrbView.cornerRadius = MIN(rawCorner, maxCorner);
     self.glassOrbView.refractionScale = customRefraction;
     
     // Update the external white glow to match the new scaled/shifted orbFrame
