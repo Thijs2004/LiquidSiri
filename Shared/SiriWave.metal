@@ -157,21 +157,6 @@ fragment half4 siriFragmentShader(VertexOut in [[stage_in]], constant Uniforms &
     // In idle state, the GLSL looks a bit bright. Let's ensure it can fade slightly if needed
     col *= 0.5f + (talkingFactor * 0.5f); // 50% opacity in idle, 100% when talking
     
-    // --- Glass Edge Reflection ---
-    float2 uvNorm = in.uv * 2.0f - 1.0f;
-    float r = length(uvNorm);
-    float rim = smoothstep(0.75f, 0.95f, r) * smoothstep(1.05f, 0.95f, r);
-    
-    // Only reflect when talking
-    float talkBoost = clamp(talkingFactor * 3.0f, 0.0f, 1.0f);
-    
-    // Bias towards the bottom and sides (not fully around the top)
-    float glassBias = max(0.0f, uvNorm.y + abs(uvNorm.x));
-    
-    // Use the live raw color of the wave for a highly realistic refraction
-    col += preFadeCol * rim * glassBias * talkBoost * 0.8f;
-    // -----------------------------
-    
     // Make wave colors slightly more vibrant
     col *= 1.15f;
     

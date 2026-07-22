@@ -210,19 +210,6 @@ public struct SiriMetalView: UIViewRepresentable {
                 col *= 1.0f + (talkingFactor * 1.1f); // Less extreme vibrancy boost when talking
                 col *= 0.78f + (talkingFactor * 0.22f); // Tiny bit less vibrant colors when idle
                 
-                // Add glass edge refraction/reflection
-                float dCenter = length(uv);
-                float rim = smoothstep(0.75f, 0.95f, dCenter) * smoothstep(1.05f, 0.95f, dCenter);
-                
-                // Only reflect when talking
-                float talkBoost = clamp(talkingFactor * 3.0f, 0.0f, 1.0f);
-                
-                // Bias towards the bottom and sides (not fully around the top)
-                float glassBias = max(0.0f, uv.y + abs(uv.x));
-                
-                // Use the live raw color of the wave for a highly realistic refraction
-                col += preFadeCol * rim * glassBias * talkBoost * 0.8f;
-                
                 return half4(half3(col), 1.0);
             }
             """
