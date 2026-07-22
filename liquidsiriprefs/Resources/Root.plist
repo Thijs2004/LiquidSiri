@@ -68,7 +68,95 @@
 			<key>min</key>
 			<real>0.5</real>
 			<key>max</key>
-			<real>1.5</real>
+			<real>2.5</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>label</key>
+			<string>Width (Scale)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>1.0</real>
+			<key>defaults</key>
+			<string>com.yourcompany.liquidsiri.prefs</string>
+			<key>key</key>
+			<string>customWidth</string>
+			<key>min</key>
+			<real>0.5</real>
+			<key>max</key>
+			<real>2.5</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>label</key>
+			<string>Height (Scale)</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>1.0</real>
+			<key>defaults</key>
+			<string>com.yourcompany.liquidsiri.prefs</string>
+			<key>key</key>
+			<string>customHeight</string>
+			<key>min</key>
+			<real>0.5</real>
+			<key>max</key>
+			<real>2.5</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>label</key>
+			<string>Corner Radius</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>1.0</real>
+			<key>defaults</key>
+			<string>com.yourcompany.liquidsiri.prefs</string>
+			<key>key</key>
+			<string>customCorner</string>
+			<key>min</key>
+			<real>0.0</real>
+			<key>max</key>
+			<real>2.0</real>
+			<key>showValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSStaticTextCell</string>
+			<key>label</key>
+			<string>Glass Refraction Strength</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSSliderCell</string>
+			<key>default</key>
+			<real>1.4</real>
+			<key>defaults</key>
+			<string>com.yourcompany.liquidsiri.prefs</string>
+			<key>key</key>
+			<string>customRefraction</string>
+			<key>min</key>
+			<real>0.0</real>
+			<key>max</key>
+			<real>5.0</real>
 			<key>showValue</key>
 			<true/>
 		</dict>
