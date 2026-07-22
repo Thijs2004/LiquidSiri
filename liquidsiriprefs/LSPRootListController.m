@@ -17,6 +17,10 @@
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.yourcompany.liquidsiri.prefs"];
     [defaults setFloat:0.0 forKey:@"yOffset"];
     [defaults setFloat:1.0 forKey:@"orbScale"];
+    [defaults setFloat:1.0 forKey:@"customWidth"];
+    [defaults setFloat:1.0 forKey:@"customHeight"];
+    [defaults setFloat:1.0 forKey:@"customCorner"];
+    [defaults setFloat:1.4 forKey:@"customRefraction"];
     [defaults synchronize];
     
     // Also explicitly write to rootless path to be completely safe on modern jailbreaks
@@ -24,6 +28,10 @@
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithContentsOfFile:rootlessPath] ?: [NSMutableDictionary dictionary];
     dict[@"yOffset"] = @(0.0);
     dict[@"orbScale"] = @(1.0);
+    dict[@"customWidth"] = @(1.0);
+    dict[@"customHeight"] = @(1.0);
+    dict[@"customCorner"] = @(1.0);
+    dict[@"customRefraction"] = @(1.4);
     [dict writeToFile:rootlessPath atomically:YES];
     
     [self reloadSpecifiers];
