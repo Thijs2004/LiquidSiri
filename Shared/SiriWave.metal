@@ -141,6 +141,10 @@ fragment half4 siriFragmentShader(VertexOut in [[stage_in]], constant Uniforms &
     col += 0.5f * inten * (lorM + boostVal) / (sqrt(dM*dM + soft*soft) + th);
 
     col = pow(max(col, 0.0f), float3(1.5f));
+    
+    // Save the raw live color before we apply the edge fade mask
+    float3 preFadeCol = col;
+    
     float emT = clamp((abs(yScreen) - 1.0f + EDGE_INSET) / (-max(EDGE_MASK, 1e-4f)), 0.0f, 1.0f);
     float em  = emT*emT*(3.0f - 2.0f*emT);
     float gauss = exp(-pow(xN*FALLOFF, 2.0f));
@@ -156,19 +160,16 @@ fragment half4 siriFragmentShader(VertexOut in [[stage_in]], constant Uniforms &
     // --- Glass Edge Reflection ---
     float2 uvNorm = in.uv * 2.0f - 1.0f;
     float r = length(uvNorm);
-    // Create a rim mask that peaks near the edge of the orb (0.85 to 0.98)
     float rim = smoothstep(0.75f, 0.95f, r) * smoothstep(1.05f, 0.95f, r);
     
-    // Generate a spectrum matching the waves for the reflection
-    float normX = (uvNorm.x + 1.0f) * 0.5f;
-    float3 c1 = float3(0.1f, 0.6f, 1.0f); // Cyan/Blue
-    float3 c2 = float3(0.6f, 1.0f, 0.4f); // Green/Yellow
-    float3 c3 = float3(1.0f, 0.2f, 0.5f); // Pink/Red
-    float3 rimColor = mix(mix(c1, c2, normX * 2.0f), mix(c2, c3, (normX - 0.5f) * 2.0f), step(0.5f, normX));
+    // Only reflect when talking
+    float talkBoost = clamp(talkingFactor * 3.0f, 0.0f, 1.0f);
     
-    // Multiply by a base reflection intensity, add to the final color
-    float reflectionIntensity = 0.4f + (talkingFactor * 0.3f);
-    col += rimColor * rim * reflectionIntensity;
+    // Bias towards the bottom and sides (not fully around the top)
+    float glassBias = max(0.0f, uvNorm.y + abs(uvNorm.x));
+    
+    // Use the live raw color of the wave for a highly realistic refraction
+    col += preFadeCol * rim * glassBias * talkBoost * 0.8f;
     // -----------------------------
     
     // Make wave colors slightly more vibrant
