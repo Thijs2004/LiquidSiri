@@ -1,1 +1,11 @@
+# Theos / Build artifacts
+.theos/
 packages/
+*.deb
+*.stage
+.build/
+*.o
+*.dylib
+
+# macOS System files
+.DS_Store
