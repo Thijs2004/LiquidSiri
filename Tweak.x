@@ -977,8 +977,7 @@ static void sendPowerToSpringBoard(float level) {
 - (void)layoutSubviews {
     %orig;
     for (UIView *sub in self.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
-            [sub isKindOfClass:NSClassFromString(@"PLPlatterView")]) {
+        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")]) {
             sub.alpha = 0.0;
             sub.hidden = YES;
         }
@@ -995,22 +994,6 @@ static void sendPowerToSpringBoard(float level) {
 
 - (void)layoutSubviews {
     %orig;
-    
-    // Hide default Apple platter blur background
-    for (UIView *sub in self.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"PLPlatterView")] ||
-            [sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
-            [sub isKindOfClass:[UIVisualEffectView class]]) {
-            sub.alpha = 0.0;
-            for (UIView *child in sub.subviews) {
-                if ([child isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
-                    [child isKindOfClass:[UIVisualEffectView class]]) {
-                    child.alpha = 0.0;
-                    child.hidden = YES;
-                }
-            }
-        }
-    }
     
     // Attach LiquidGlassView as the background container of SiriSharedUICompactConversationView
     if (!self.lgGlassPlatter && self.bounds.size.width > 50 && self.bounds.size.height > 30) {
@@ -1045,12 +1028,6 @@ static void sendPowerToSpringBoard(float level) {
 %hook SiriSharedUIStandardView
 - (void)layoutSubviews {
     %orig;
-    for (UIView *sub in self.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"PLPlatterView")] ||
-            [sub isKindOfClass:NSClassFromString(@"MTMaterialView")]) {
-            sub.alpha = 0.0;
-        }
-    }
 }
 %end
 
