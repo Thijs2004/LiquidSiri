@@ -45,6 +45,16 @@ static NSInteger globalSiriState = 1;
 @property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
 @end
 
+@interface SiriSharedUICompactConversationView : UIView
+@property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
+@end
+
+@interface SiriSharedUIStandardView : UIView
+@end
+
+@interface PLPlatterView : UIView
+@end
+
 @interface AFUISiriCompactView : UIView
 @end
 
@@ -971,6 +981,102 @@ static void sendPowerToSpringBoard(float level) {
             [sub isKindOfClass:NSClassFromString(@"PLPlatterView")]) {
             sub.alpha = 0.0;
             sub.hidden = YES;
+        }
+    }
+}
+%end
+
+// ----------------------------------------------------------------------------------------------------------------------
+// SiriSharedUI (iOS 16 Siri Response Card Glassification)
+// ----------------------------------------------------------------------------------------------------------------------
+
+%hook SiriSharedUICompactConversationView
+%property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
+
+- (void)layoutSubviews {
+    %orig;
+    
+    // Hide default Apple platter blur background
+    for (UIView *sub in self.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"PLPlatterView")] ||
+            [sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
+            [sub isKindOfClass:[UIVisualEffectView class]]) {
+            sub.alpha = 0.0;
+            for (UIView *child in sub.subviews) {
+                if ([child isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
+                    [child isKindOfClass:[UIVisualEffectView class]]) {
+                    child.alpha = 0.0;
+                    child.hidden = YES;
+                }
+            }
+        }
+    }
+    
+    // Attach LiquidGlassView as the background container of SiriSharedUICompactConversationView
+    if (!self.lgGlassPlatter && self.bounds.size.width > 50 && self.bounds.size.height > 30) {
+        CGRect screenBounds = [UIScreen mainScreen].bounds;
+        UIGraphicsBeginImageContextWithOptions(screenBounds.size, NO, 0.0);
+        UIImage *tempBg = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        
+        self.lgGlassPlatter = [[LiquidGlassView alloc] initWithFrame:self.bounds wallpaper:tempBg wallpaperOrigin:CGPointZero];
+        self.lgGlassPlatter.updateGroup = 254;
+        self.lgGlassPlatter.refractionScale = 1.35;
+        self.lgGlassPlatter.refractiveIndex = 1.15;
+        self.lgGlassPlatter.specularOpacity = 0.95;
+        self.lgGlassPlatter.bezelWidth = 14.0;
+        self.lgGlassPlatter.glassThickness = 60.0;
+        self.lgGlassPlatter.cornerRadius = 20.0;
+        self.lgGlassPlatter.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        
+        self.layer.cornerRadius = 20.0;
+        self.clipsToBounds = YES;
+        
+        [self insertSubview:self.lgGlassPlatter atIndex:0];
+    }
+    
+    if (self.lgGlassPlatter) {
+        self.lgGlassPlatter.frame = self.bounds;
+        self.lgGlassPlatter.cornerRadius = MIN(20.0, MIN(self.bounds.size.width, self.bounds.size.height) / 2.0);
+    }
+}
+%end
+
+%hook SiriSharedUIStandardView
+- (void)layoutSubviews {
+    %orig;
+    for (UIView *sub in self.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"PLPlatterView")] ||
+            [sub isKindOfClass:NSClassFromString(@"MTMaterialView")]) {
+            sub.alpha = 0.0;
+        }
+    }
+}
+%end
+
+%hook PLPlatterView
+- (void)layoutSubviews {
+    %orig;
+    
+    UIView *parent = self.superview;
+    BOOL isSiri = NO;
+    while (parent) {
+        NSString *clsName = NSStringFromClass([parent class]);
+        if ([clsName containsString:@"Siri"]) {
+            isSiri = YES;
+            break;
+        }
+        parent = parent.superview;
+    }
+    
+    if (isSiri) {
+        for (UIView *sub in self.subviews) {
+            if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
+                [sub isKindOfClass:[UIVisualEffectView class]] ||
+                [NSStringFromClass([sub class]) containsString:@"Material"]) {
+                sub.alpha = 0.0;
+                sub.hidden = YES;
+            }
         }
     }
 }
