@@ -41,6 +41,13 @@ static NSInteger globalSiriState = 1;
 }
 @end
 
+@interface SiriUIContentPlatterView : UIView
+@property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
+@end
+
+@interface AFUISiriCompactView : UIView
+@end
+
 @interface SiriUIBackgroundBlurViewController : UIViewController
 @property (nonatomic, strong) LiquidGlassView *glassOrbView;
 @property (nonatomic, strong) SiriBackdropCaptureView *backdropView;
@@ -904,6 +911,69 @@ static void sendPowerToSpringBoard(float level) {
     sendPowerToSpringBoard(0.0);
 }
 
+%end
+
+// ----------------------------------------------------------------------------------------------------------------------
+// Liquid Glass Response Card for iOS 16 Siri
+// ----------------------------------------------------------------------------------------------------------------------
+
+%hook SiriUIContentPlatterView
+%property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
+
+- (void)layoutSubviews {
+    %orig;
+    
+    // Hide default Apple platter blur background (MTMaterialView, PLPlatterView, etc.)
+    for (UIView *sub in self.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] || 
+            [sub isKindOfClass:[UIVisualEffectView class]] ||
+            [sub isKindOfClass:NSClassFromString(@"PLPlatterView")]) {
+            sub.alpha = 0.0;
+            sub.hidden = YES;
+        }
+    }
+    
+    // Attach our Liquid Glass response card background
+    if (!self.lgGlassPlatter && self.bounds.size.width > 50 && self.bounds.size.height > 30) {
+        CGRect screenBounds = [UIScreen mainScreen].bounds;
+        UIGraphicsBeginImageContextWithOptions(screenBounds.size, NO, 0.0);
+        UIImage *tempBg = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        
+        self.lgGlassPlatter = [[LiquidGlassView alloc] initWithFrame:self.bounds wallpaper:tempBg wallpaperOrigin:CGPointZero];
+        self.lgGlassPlatter.updateGroup = 254;
+        self.lgGlassPlatter.refractionScale = 1.35;
+        self.lgGlassPlatter.refractiveIndex = 1.15;
+        self.lgGlassPlatter.specularOpacity = 0.95;
+        self.lgGlassPlatter.bezelWidth = 14.0;
+        self.lgGlassPlatter.glassThickness = 60.0;
+        self.lgGlassPlatter.cornerRadius = 20.0;
+        self.lgGlassPlatter.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        
+        self.layer.cornerRadius = 20.0;
+        self.clipsToBounds = YES;
+        
+        [self insertSubview:self.lgGlassPlatter atIndex:0];
+    }
+    
+    if (self.lgGlassPlatter) {
+        self.lgGlassPlatter.frame = self.bounds;
+        self.lgGlassPlatter.cornerRadius = MIN(20.0, MIN(self.bounds.size.width, self.bounds.size.height) / 2.0);
+    }
+}
+%end
+
+%hook AFUISiriCompactView
+- (void)layoutSubviews {
+    %orig;
+    for (UIView *sub in self.subviews) {
+        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
+            [sub isKindOfClass:NSClassFromString(@"PLPlatterView")]) {
+            sub.alpha = 0.0;
+            sub.hidden = YES;
+        }
+    }
+}
 %end
 %ctor {
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
