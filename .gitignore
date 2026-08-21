@@ -7,5 +7,9 @@ packages/
 *.o
 *.dylib
 
+# Extracted deb package directories
+LiquidSiri-*-rootless/
+LiquidSiri-*-rootful/
+
 # macOS System files
 .DS_Store
