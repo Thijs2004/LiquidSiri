@@ -1,1 +1,1 @@
-{ Filter = { Bundles = ( "com.apple.SiriViewService", "com.apple.springboard", "com.apple.siri.SystemUI", "com.apple.SiriUI", "com.apple.UIKit" ); }; }
+{ Filter = { Bundles = ( "com.apple.SiriViewService", "com.apple.springboard", "com.apple.siri.SystemUI", "com.apple.SiriUI" ); }; }

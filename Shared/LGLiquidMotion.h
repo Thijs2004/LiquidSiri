@@ -30,6 +30,10 @@ static inline CGFloat LGLiquidOvershootDistance(CGFloat touchX, CGFloat minX, CG
     return 0.0;
 }
 
+static inline CGFloat LGLiquidFilteredVelocity(CGFloat previous, CGFloat raw) {
+    return previous * 0.35 + raw * 0.65;
+}
+
 static inline LGLiquidDragState LGLiquidDragStateMake(CGFloat touchX,
                                                       CGFloat minX,
                                                       CGFloat maxX,

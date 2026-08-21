@@ -86,35 +86,32 @@ import AVFoundation
         let deadzone = 0.05
         let signal = max(0.0, boostedLevel - deadzone)
         
-        // Higher multiplier so soft voices = medium reaction, loud voices = large reaction
-        let targetVisualPower = 0.15 + min(4.0, signal * 18.0)
+        // Responsive visual power scaling (a tiny bit higher when talking)
+        let targetVisualPower = 0.15 + min(3.0, signal * 8.0)
         
         // Smoothly interpolate power with an attack/release curve
-        // Extremely fast attack when getting louder (0.00001), slower release when getting quieter (0.15)
-        let powerInterpolationBase = targetVisualPower > currentPower ? 0.00001 : 0.15
+        // Fast attack when talking (0.001), smooth release (0.15)
+        let powerInterpolationBase = targetVisualPower > currentPower ? 0.001 : 0.15
         currentPower += (targetVisualPower - currentPower) * (1.0 - pow(powerInterpolationBase, dt))
         
         bassLevel = currentPower
         midLevel = currentPower
         trebleLevel = currentPower
         
-        // 2. Calculate dynamic speed
-        // Base speed is 1.0 (calm, matches ShaderToy iTime).
-        // We add proportional amount of speed when talking.
-        let targetSpeed = 1.0 + min(2.0, signal * 4.0)
-        let speedInterpolationBase = targetSpeed > currentSpeed ? 0.01 : 0.15
+        // 2. Accelerated spin when talking / reacting (smooth & monotonic forward)
+        let targetSpeed = 1.6 + min(4.8, signal * 7.0)
+        let speedInterpolationBase = targetSpeed > currentSpeed ? 0.005 : 0.12
         currentSpeed += (targetSpeed - currentSpeed) * (1.0 - pow(speedInterpolationBase, dt))
         
         phase += currentSpeed * dt
-        if phase > .pi * 100 { phase = phase.truncatingRemainder(dividingBy: .pi * 2) }
+        if phase > .pi * 1000 { phase = phase.truncatingRemainder(dividingBy: .pi * 2) }
         
-        let extraSpeed = min(2.0, signal * 4.0)
+        // Faster spin around each other
+        let extraSpeed = min(4.5, signal * 7.0)
         for i in 0..<7 {
-            // When extraSpeed is 0, they all move at currentSpeed.
-            // When extraSpeed is high, they spread out in speed so they roll out of sync!
-            let individualSpeed = currentSpeed + extraSpeed * Double(i - 3) * 0.2
+            let individualSpeed = max(0.8, currentSpeed + extraSpeed * Double(i - 3) * 0.28)
             phases[i] += individualSpeed * dt
-            if phases[i] > .pi * 100 { phases[i] = phases[i].truncatingRemainder(dividingBy: .pi * 2) }
+            if phases[i] > .pi * 1000 { phases[i] = phases[i].truncatingRemainder(dividingBy: .pi * 2) }
         }
         
         if abs(currentPower - power) > 0.001 {

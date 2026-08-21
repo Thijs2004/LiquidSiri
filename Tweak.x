@@ -1,5 +1,7 @@
 #import <UIKit/UIKit.h>
 #import "LiquidGlass.h"
+#import "Shared/LGLiveBackdropView.h"
+#import "Shared/LGHostRegistry.h"
 #import "LiquidSiri-Swift.h"
 
 #import <AVFoundation/AVFoundation.h>
@@ -41,21 +43,20 @@ static NSInteger globalSiriState = 1;
 }
 @end
 
-@interface SiriUIContentPlatterView : UIView
-@property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
-@end
+
 
 @interface SiriSharedUICompactConversationView : UIView
+@property (nonatomic, strong) LGLiveBackdropView *lgLiveBackdrop;
 @property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
+@property (nonatomic, strong) CAGradientLayer *lgDarkGradientLayer;
+@property (nonatomic, strong) UIView *lgTransitionGlowView;
+@property (nonatomic, strong) UIView *lgBottomGlowView;
 @end
 
-@interface SiriSharedUIStandardView : UIView
+@interface SiriUICompactSnippetView : UIView
 @end
 
-@interface PLPlatterView : UIView
-@end
-
-@interface AFUISiriCompactView : UIView
+@interface SiriSharedUICompactResultView : UIView
 @end
 
 @interface SiriUIBackgroundBlurViewController : UIViewController
@@ -72,6 +73,8 @@ static NSInteger globalSiriState = 1;
 @property (nonatomic, strong) UISlider *sliderY;
 @property (nonatomic, strong) UISlider *sliderCorner;
 @property (nonatomic, strong) UISlider *sliderRefraction;
+- (void)liquidSiriHideOrb;
+- (void)liquidSiriShowOrb;
 - (void)liquidSiriToggleEditor:(UILongPressGestureRecognizer *)gesture;
 - (UISlider *)createSliderWithTitle:(NSString *)title min:(float)min max:(float)max val:(float)val y:(CGFloat)y inPanel:(UIView *)panel;
 - (void)liquidSiriSetupEditor;
@@ -126,6 +129,26 @@ void LG_redrawRegisteredGlassViews(LGUpdateGroup group) {}
 }
 
 %end
+
+static __weak SiriUIBackgroundBlurViewController *gBlurVC = nil;
+
+static void handleLiquidSiriResponseAppeared(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+    SiriUIBackgroundBlurViewController *vc = gBlurVC;
+    if (vc && [vc respondsToSelector:@selector(liquidSiriHideOrb)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [vc liquidSiriHideOrb];
+        });
+    }
+}
+
+static void handleLiquidSiriResponseDisappeared(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+    SiriUIBackgroundBlurViewController *vc = gBlurVC;
+    if (vc && [vc respondsToSelector:@selector(liquidSiriShowOrb)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [vc liquidSiriShowOrb];
+        });
+    }
+}
 
 static NSArray *generateWavePaths(CGRect bounds, CGFloat amplitude, CGFloat frequency, NSInteger steps) {
     NSMutableArray *paths = [NSMutableArray array];
@@ -182,16 +205,38 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     longPress.minimumPressDuration = 0.5;
     [self.view addGestureRecognizer:longPress];
     
+    NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+    BOOL isMainSiriProcess = [bundleID isEqualToString:@"com.apple.SiriViewService"] || [bundleID isEqualToString:@"com.apple.springboard"];
+    if (!isMainSiriProcess) {
+        return; // Prevent duplicate orb creation in com.apple.siri.SystemUI
+    }
+    
+    gBlurVC = self;
+    
+    // Register Darwin Notification listeners to hide orb when response card appears
+    CFNotificationCenterAddObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        NULL,
+        (CFNotificationCallback)handleLiquidSiriResponseAppeared,
+        CFSTR("com.yourcompany.liquidsiri.responseAppeared"),
+        NULL,
+        CFNotificationSuspensionBehaviorDeliverImmediately
+    );
+    CFNotificationCenterAddObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        NULL,
+        (CFNotificationCallback)handleLiquidSiriResponseDisappeared,
+        CFSTR("com.yourcompany.liquidsiri.responseDisappeared"),
+        NULL,
+        CFNotificationSuspensionBehaviorDeliverImmediately
+    );
+    
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGFloat width = 154.0;
     CGFloat height = 105.0;
     CGRect orbFrame = CGRectMake((screenBounds.size.width - width)/2.0, 35, width, height);
     
-    UIGraphicsBeginImageContextWithOptions(screenBounds.size, NO, 0.0);
-    UIImage *tempBg = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-    
-    self.glassOrbView = [[LiquidGlassView alloc] initWithFrame:orbFrame wallpaper:tempBg wallpaperOrigin:CGPointZero];
+    self.glassOrbView = [[LiquidGlassView alloc] initWithFrame:orbFrame wallpaper:nil wallpaperOrigin:CGPointZero];
     self.glassOrbView.updateGroup = 255; // Unregistered group so liquidass preferences don't overwrite our glass thickness
     
     // Physical glass parameters: 
@@ -230,6 +275,22 @@ OBJC_EXTERN UIImage *_UICreateScreenUIImage(void);
     [self.glassOrbView addSubview:self.glowLineView];
     
     self.glassOrbView.alpha = 0.0;
+}
+
+%new
+- (void)liquidSiriHideOrb {
+    [UIView animateWithDuration:0.3 animations:^{
+        self.glassOrbView.alpha = 0.0;
+        self.externalWhiteGlowView.alpha = 0.0;
+    }];
+}
+
+%new
+- (void)liquidSiriShowOrb {
+    [UIView animateWithDuration:0.3 animations:^{
+        self.glassOrbView.alpha = 1.0;
+        self.externalWhiteGlowView.alpha = 1.0;
+    }];
 }
 
 %new
@@ -923,141 +984,216 @@ static void sendPowerToSpringBoard(float level) {
 
 %end
 
-// ----------------------------------------------------------------------------------------------------------------------
-// Liquid Glass Response Card for iOS 16 Siri
-// ----------------------------------------------------------------------------------------------------------------------
 
-%hook SiriUIContentPlatterView
-%property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
-
-- (void)layoutSubviews {
-    %orig;
-    
-    // Hide default Apple platter blur background (MTMaterialView, PLPlatterView, etc.)
-    for (UIView *sub in self.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] || 
-            [sub isKindOfClass:[UIVisualEffectView class]] ||
-            [sub isKindOfClass:NSClassFromString(@"PLPlatterView")]) {
-            sub.alpha = 0.0;
-            sub.hidden = YES;
-        }
-    }
-    
-    // Attach our Liquid Glass response card background
-    if (!self.lgGlassPlatter && self.bounds.size.width > 50 && self.bounds.size.height > 30) {
-        CGRect screenBounds = [UIScreen mainScreen].bounds;
-        UIGraphicsBeginImageContextWithOptions(screenBounds.size, NO, 0.0);
-        UIImage *tempBg = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-        
-        self.lgGlassPlatter = [[LiquidGlassView alloc] initWithFrame:self.bounds wallpaper:tempBg wallpaperOrigin:CGPointZero];
-        self.lgGlassPlatter.updateGroup = 254;
-        self.lgGlassPlatter.refractionScale = 1.35;
-        self.lgGlassPlatter.refractiveIndex = 1.15;
-        self.lgGlassPlatter.specularOpacity = 0.95;
-        self.lgGlassPlatter.bezelWidth = 14.0;
-        self.lgGlassPlatter.glassThickness = 60.0;
-        self.lgGlassPlatter.cornerRadius = 20.0;
-        self.lgGlassPlatter.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        
-        self.layer.cornerRadius = 20.0;
-        self.clipsToBounds = YES;
-        
-        [self insertSubview:self.lgGlassPlatter atIndex:0];
-    }
-    
-    if (self.lgGlassPlatter) {
-        self.lgGlassPlatter.frame = self.bounds;
-        self.lgGlassPlatter.cornerRadius = MIN(20.0, MIN(self.bounds.size.width, self.bounds.size.height) / 2.0);
-    }
-}
-%end
-
-%hook AFUISiriCompactView
-- (void)layoutSubviews {
-    %orig;
-    for (UIView *sub in self.subviews) {
-        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")]) {
-            sub.alpha = 0.0;
-            sub.hidden = YES;
-        }
-    }
-}
-%end
-
-// ----------------------------------------------------------------------------------------------------------------------
-// SiriSharedUI (iOS 16 Siri Response Card Glassification)
-// ----------------------------------------------------------------------------------------------------------------------
 
 %hook SiriSharedUICompactConversationView
+%property (nonatomic, strong) LGLiveBackdropView *lgLiveBackdrop;
 %property (nonatomic, strong) LiquidGlassView *lgGlassPlatter;
+%property (nonatomic, strong) CAGradientLayer *lgDarkGradientLayer;
+%property (nonatomic, strong) UIView *lgTransitionGlowView;
+%property (nonatomic, strong) UIView *lgBottomGlowView;
 
-- (void)layoutSubviews {
+- (void)willMoveToWindow:(UIWindow *)newWindow {
     %orig;
-    
-    // Attach LiquidGlassView as the background container of SiriSharedUICompactConversationView
-    if (!self.lgGlassPlatter && self.bounds.size.width > 50 && self.bounds.size.height > 30) {
-        CGRect screenBounds = [UIScreen mainScreen].bounds;
-        UIGraphicsBeginImageContextWithOptions(screenBounds.size, NO, 0.0);
-        UIImage *tempBg = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-        
-        self.lgGlassPlatter = [[LiquidGlassView alloc] initWithFrame:self.bounds wallpaper:tempBg wallpaperOrigin:CGPointZero];
-        self.lgGlassPlatter.updateGroup = 254;
-        self.lgGlassPlatter.refractionScale = 1.35;
-        self.lgGlassPlatter.refractiveIndex = 1.15;
-        self.lgGlassPlatter.specularOpacity = 0.95;
-        self.lgGlassPlatter.bezelWidth = 14.0;
-        self.lgGlassPlatter.glassThickness = 60.0;
-        self.lgGlassPlatter.cornerRadius = 20.0;
-        self.lgGlassPlatter.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        
-        self.layer.cornerRadius = 20.0;
-        self.clipsToBounds = YES;
-        
-        [self insertSubview:self.lgGlassPlatter atIndex:0];
-    }
-    
-    if (self.lgGlassPlatter) {
-        self.lgGlassPlatter.frame = self.bounds;
-        self.lgGlassPlatter.cornerRadius = MIN(20.0, MIN(self.bounds.size.width, self.bounds.size.height) / 2.0);
+    if (newWindow == nil) {
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.yourcompany.liquidsiri.responseDisappeared"), NULL, NULL, YES);
     }
 }
-%end
 
-%hook SiriSharedUIStandardView
-- (void)layoutSubviews {
-    %orig;
-}
-%end
-
-%hook PLPlatterView
 - (void)layoutSubviews {
     %orig;
     
-    UIView *parent = self.superview;
-    BOOL isSiri = NO;
-    while (parent) {
-        NSString *clsName = NSStringFromClass([parent class]);
-        if ([clsName containsString:@"Siri"]) {
-            isSiri = YES;
-            break;
+    // Translate root view hierarchy to top of screen (y = 35.0) replacing the Siri orb location
+    UIView *cardContainer = self;
+    while (cardContainer.superview && ![cardContainer.superview isKindOfClass:[UIWindow class]]) {
+        cardContainer = cardContainer.superview;
+    }
+    if (cardContainer && cardContainer.window) {
+        CGRect windowFrame = [cardContainer convertRect:cardContainer.bounds toView:nil];
+        if (windowFrame.origin.y > 60.0) {
+            CGFloat offsetY = 35.0 - windowFrame.origin.y;
+            cardContainer.transform = CGAffineTransformMakeTranslation(0, offsetY);
         }
-        parent = parent.superview;
     }
     
-    if (isSiri) {
-        for (UIView *sub in self.subviews) {
-            if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
-                [sub isKindOfClass:[UIVisualEffectView class]] ||
-                [NSStringFromClass([sub class]) containsString:@"Material"]) {
-                sub.alpha = 0.0;
-                sub.hidden = YES;
+    CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), CFSTR("com.yourcompany.liquidsiri.responseAppeared"), NULL, NULL, YES);
+    
+    self.backgroundColor = [UIColor clearColor];
+    
+    // Hide Apple's grey MTMaterialView / PLPlatterView background specifically inside this response card
+    for (UIView *sub in self.subviews) {
+        if (sub == self.lgLiveBackdrop || sub == self.lgGlassPlatter) continue;
+        
+        NSString *clsName = NSStringFromClass([sub class]);
+        if ([sub isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
+            [sub isKindOfClass:[UIVisualEffectView class]] ||
+            [clsName containsString:@"Material"] ||
+            [clsName containsString:@"Backdrop"]) {
+            sub.alpha = 0.0;
+            sub.hidden = YES;
+        }
+        
+        if ([sub isKindOfClass:NSClassFromString(@"PLPlatterView")]) {
+            sub.backgroundColor = [UIColor clearColor];
+            for (UIView *child in sub.subviews) {
+                if (child == self.lgLiveBackdrop || child == self.lgGlassPlatter) continue;
+                NSString *childCls = NSStringFromClass([child class]);
+                if ([child isKindOfClass:NSClassFromString(@"MTMaterialView")] ||
+                    [child isKindOfClass:[UIVisualEffectView class]] ||
+                    [childCls containsString:@"Material"] ||
+                    [childCls containsString:@"Backdrop"]) {
+                    child.alpha = 0.0;
+                    child.hidden = YES;
+                }
             }
         }
     }
+    
+    CGFloat cornerRad = 24.0;
+    
+    // 1. Attach Winaviation's new LGLiveBackdropView (with live refraction & specular highlights)
+    if (!self.lgLiveBackdrop) {
+        self.lgLiveBackdrop = [[LGLiveBackdropView alloc] initWithFrame:self.bounds
+                                                             groupName:@"dylv.liquidglass.siriresponse"
+                                                            filterType:@"dylv.liquidglass.banner"];
+        self.lgLiveBackdrop.layer.cornerRadius = cornerRad;
+        self.lgLiveBackdrop.layer.cornerCurve = kCACornerCurveContinuous;
+        self.lgLiveBackdrop.layer.masksToBounds = YES;
+        self.lgLiveBackdrop.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [self insertSubview:self.lgLiveBackdrop atIndex:0];
+    }
+    
+    // 2. Attach LiquidGlassView for deep optical bending and bezel reflections
+    if (!self.lgGlassPlatter) {
+        self.lgGlassPlatter = [[LiquidGlassView alloc] initWithFrame:self.bounds wallpaper:nil wallpaperOrigin:CGPointZero];
+        self.lgGlassPlatter.updateGroup = 255;
+        self.lgGlassPlatter.refractionScale = 1.60;
+        self.lgGlassPlatter.refractiveIndex = 1.25;
+        self.lgGlassPlatter.specularOpacity = 1.0;
+        self.lgGlassPlatter.bezelWidth = 24.0;
+        self.lgGlassPlatter.glassThickness = 120.0;
+        self.lgGlassPlatter.cornerRadius = cornerRad;
+        self.lgGlassPlatter.blur = 0.0;
+        self.lgGlassPlatter.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        
+        // Deep jet black top glass with ultra-smooth organic glass transition into the crystal liquid glass bottom half
+        self.lgDarkGradientLayer = [CAGradientLayer layer];
+        self.lgDarkGradientLayer.colors = @[
+            (id)[UIColor colorWithWhite:0.0 alpha:0.96].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.95].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.88].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.72].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.48].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.24].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.08].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.00].CGColor
+        ];
+        self.lgDarkGradientLayer.locations = @[
+            @(0.00),
+            @(0.18),
+            @(0.28),
+            @(0.36),
+            @(0.44),
+            @(0.50),
+            @(0.56),
+            @(0.62)
+        ];
+        self.lgDarkGradientLayer.startPoint = CGPointMake(0.5, 0.0);
+        self.lgDarkGradientLayer.endPoint = CGPointMake(0.5, 1.0);
+        self.lgDarkGradientLayer.cornerRadius = cornerRad;
+        [self.lgGlassPlatter.layer addSublayer:self.lgDarkGradientLayer];
+        
+        // Soft, delicate glowing seam highlight at the equator
+        self.lgTransitionGlowView = [[UIView alloc] initWithFrame:CGRectZero];
+        self.lgTransitionGlowView.backgroundColor = [UIColor clearColor];
+        self.lgTransitionGlowView.layer.shadowColor = [UIColor whiteColor].CGColor;
+        self.lgTransitionGlowView.layer.shadowOffset = CGSizeZero;
+        self.lgTransitionGlowView.layer.shadowOpacity = 0.18;
+        self.lgTransitionGlowView.layer.shadowRadius = 8.0;
+        [self.lgGlassPlatter addSubview:self.lgTransitionGlowView];
+        
+        // Bottom white glass rim reflection (matches the bottom glass rim of the Siri orb)
+        self.lgBottomGlowView = [[UIView alloc] initWithFrame:CGRectZero];
+        self.lgBottomGlowView.backgroundColor = [UIColor clearColor];
+        self.lgBottomGlowView.layer.shadowColor = [UIColor whiteColor].CGColor;
+        self.lgBottomGlowView.layer.shadowOffset = CGSizeZero;
+        self.lgBottomGlowView.layer.shadowOpacity = 0.35;
+        self.lgBottomGlowView.layer.shadowRadius = 6.0;
+        [self.lgGlassPlatter addSubview:self.lgBottomGlowView];
+        
+        self.layer.cornerRadius = cornerRad;
+        self.clipsToBounds = YES;
+        
+        [self insertSubview:self.lgGlassPlatter aboveSubview:self.lgLiveBackdrop];
+    }
+    
+    if (self.lgLiveBackdrop) {
+        self.lgLiveBackdrop.frame = self.bounds;
+        self.lgLiveBackdrop.layer.cornerRadius = cornerRad;
+        [self.lgLiveBackdrop applyFilters];
+    }
+    
+    if (self.lgGlassPlatter) {
+        self.lgGlassPlatter.frame = self.bounds;
+        self.lgGlassPlatter.cornerRadius = cornerRad;
+        
+        if (self.lgDarkGradientLayer) {
+            self.lgDarkGradientLayer.frame = self.bounds;
+            self.lgDarkGradientLayer.cornerRadius = cornerRad;
+        }
+        
+        if (self.lgTransitionGlowView) {
+            CGFloat w = self.bounds.size.width;
+            CGFloat h = self.bounds.size.height;
+            CGFloat transY = h * 0.48; // Seamless subtle transition line right around the midpoint
+            self.lgTransitionGlowView.frame = CGRectMake(w * 0.10, transY, w * 0.80, 2.0);
+            UIBezierPath *transPath = [UIBezierPath bezierPathWithOvalInRect:self.lgTransitionGlowView.bounds];
+            self.lgTransitionGlowView.layer.shadowPath = transPath.CGPath;
+        }
+        
+        if (self.lgBottomGlowView) {
+            CGFloat w = self.bounds.size.width;
+            CGFloat h = self.bounds.size.height;
+            self.lgBottomGlowView.frame = CGRectMake(w * 0.15, h - 7.0, w * 0.70, 5.0);
+            UIBezierPath *glowPath = [UIBezierPath bezierPathWithOvalInRect:self.lgBottomGlowView.bounds];
+            self.lgBottomGlowView.layer.shadowPath = glowPath.CGPath;
+        }
+    }
 }
 %end
+
+// Strip opaque backgrounds on child Siri snippet / result platters so the Liquid Glass shows through seamlessly
+%hook SiriUICompactSnippetView
+- (void)layoutSubviews {
+    %orig;
+    self.backgroundColor = [UIColor clearColor];
+    for (UIView *v in self.subviews) {
+        NSString *clsName = NSStringFromClass([v class]);
+        if ([clsName containsString:@"Material"] || [clsName containsString:@"Backdrop"]) {
+            v.alpha = 0.0;
+            v.hidden = YES;
+        }
+    }
+}
+%end
+
+%hook SiriSharedUICompactResultView
+- (void)layoutSubviews {
+    %orig;
+    self.backgroundColor = [UIColor clearColor];
+    for (UIView *v in self.subviews) {
+        NSString *clsName = NSStringFromClass([v class]);
+        if ([clsName containsString:@"Material"] || [clsName containsString:@"Backdrop"]) {
+            v.alpha = 0.0;
+            v.hidden = YES;
+        }
+    }
+}
+%end
+
+
+
+
 %ctor {
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.yourcompany.liquidsiri.prefs.plist"];
     BOOL isEnabled = YES;

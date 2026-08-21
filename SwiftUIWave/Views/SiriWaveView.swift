@@ -79,7 +79,7 @@ public struct SiriWaveView: View {
     
     private var talkingFactor: Double {
         // When bassLevel is > 0.15 (the idle level), we consider it talking.
-        let t = (manager.bassLevel - 0.15) * 8.0
+        let t = (manager.bassLevel - 0.15) * 4.5
         return min(1.0, max(0.0, t))
     }
     
@@ -94,9 +94,9 @@ public struct SiriWaveView: View {
                 // BOTTOM WHITE RIM GLOW (Matches the image's bottom glass reflection)
                 Ellipse()
                     .fill(Color.white)
-                    .frame(width: geo.size.width * 0.7, height: 12)
-                    .blur(radius: 8)
-                    .opacity(0.6)
+                    .frame(width: geo.size.width * 0.68, height: 11)
+                    .blur(radius: 7)
+                    .opacity(0.45)
                     .offset(y: (geo.size.height / 2.0) + 20.0)
             }
             .edgesIgnoringSafeArea(.all)

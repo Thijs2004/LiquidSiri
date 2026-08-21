@@ -94,35 +94,38 @@ public struct SiriMetalView: UIViewRepresentable {
             }
 
             constant float PI = 3.14159265359f;
-            constant float AMPLITUDE   = 0.25f; // Low but visible idle wave
-            constant float FREQ        = 0.8f; // Further lowered to make waves even wider horizontally
-            constant float ABER_FREQ   = 0.7f;
-            constant float SPEED       = 2.4f;
-            constant float WAVE_SCALE  = 0.6f;
-            constant float ABERRATION  = 2.6f;
-            constant float THICKNESS   = 0.5f; // Made extremely sharp/solid
-            constant float INTENSITY   = 2.0f; 
-            constant float FALLOFF     = 0.8f; // Slightly more edge fading
+            constant float AMPLITUDE   = 0.10f; // Sleek, lower wave height when idle
+            constant float FREQ        = 0.85f; // Elegant wide wave frequency
+            constant float ABER_FREQ   = 0.78f;
+            constant float SPEED       = 3.0f; // Natural, responsive forward wave drift speed
+            constant float WAVE_SCALE  = 0.62f;
+            constant float ABERRATION  = 3.2f; // Chromatic separation
+            constant float THICKNESS   = 0.36f; // Thick luminous core
+            constant float INTENSITY   = 2.45f; // Bold translucent brightness
+            constant float FALLOFF     = 0.85f;
             constant float EDGE_MASK   = 0.4f;
             constant float EDGE_INSET  = 0.0f;
-            constant float BAND_FILL   = 25000.0f; // Moderately lighter
-            constant float BAND_THICK  = 0.08f;
-            constant float SOFTNESS    = 0.4f;
-            constant float LOW_AMP     = 18.0f; // High enough for big waves
+            constant float BAND_FILL   = 38000.0f; // Solid luminous body
+            constant float BAND_THICK  = 0.220f; // Substantially thicker ribbon bands
+            constant float SOFTNESS    = 0.42f; // Volumetric, thick glow
+            constant float LOW_AMP     = 14.5f; // Higher amplitude when talking
             constant float LOW_INT     = 1.5f;
-            constant float MID_ABER    = 0.8f;
-            constant float MID_ABAMP   = 0.05f;
+            constant float MID_ABER    = 0.9f;
+            constant float MID_ABAMP   = 0.060f;
             constant float MID_BAND    = 20.0f;
-            constant float MID_SOFT    = 0.4f;
-            constant float HIGH_ABER   = 0.5f;
-            constant float HIGH_ABAMP  = 0.06f;
+            constant float MID_SOFT    = 0.38f;
+            constant float HIGH_ABER   = 0.6f;
+            constant float HIGH_ABAMP  = 0.065f;
             constant float RESOLVED    = 1.0f;
             constant float UNRES_SCALE = 0.14f;
-            constant float Y_OFFSET    = -0.08f; // Adjusted to be a tiny bit higher than -0.15f
+            constant float Y_OFFSET    = -0.02f; // Centered at the equator of the orb
             
             float3 spectral4(int s){
                 float x = float(s);
-                return clamp(float3(abs(x-3.0f)-1.0f, 2.0f-abs(x-2.0f), 2.0f-abs(x-4.0f)), 0.0f, 1.0f);
+                float3 raw = clamp(float3(abs(x-3.0f)-1.0f, 2.0f-abs(x-2.0f), 2.0f-abs(x-4.0f)), 0.0f, 1.0f);
+                float luma = dot(raw, float3(0.299f, 0.587f, 0.114f));
+                // Soft, slightly muted / duller pastel colors
+                return mix(float3(luma), raw, 0.72f);
             }
 
             fragment half4 siriFragmentShader(VertexOut in [[stage_in]], constant Uniforms &u [[buffer(0)]]) {
@@ -131,49 +134,50 @@ public struct SiriMetalView: UIViewRepresentable {
                 float2 p = uv;
                 float yScreen = uv.y;
                 p.y += Y_OFFSET;
-                p.y *= 1.2f; // Squash the wave slightly to keep it inside the bubble
+                p.y *= 1.15f; // Allows wave to go higher when talking
                 p.x *= aspect;
                 p /= max(WAVE_SCALE, 0.1f);
                 float t = u.time;
                 float talkingFactor = u.talkingFactor;
                 
-                // Generate base factors
+                // Generate base dynamic factors
                 float low  = clamp(0.45f + 0.45f*sin(t*0.8f)*sin(t*0.37f+1.0f), 0.0f, 1.0f);
                 float mid  = clamp(0.40f + 0.40f*sin(t*1.7f+2.0f)*sin(t*0.53f), 0.0f, 1.0f);
                 float high = clamp(0.30f + 0.30f*sin(t*2.9f+4.0f)*sin(t*0.71f+2.0f), 0.0f, 1.0f);
                 
                 // talkingFactor idles at 0.15
                 float activeFactor = max(0.0f, talkingFactor - 0.15f);
-                activeFactor = min(activeFactor, 1.5f);
+                activeFactor = min(activeFactor, 1.0f);
                 
                 float res   = clamp(RESOLVED, 0.0f, 1.0f);
                 float drift = fmod(t, 20.0f * PI) * SPEED;
                 float xN  = p.x / max(aspect, 1.0f);
                 
-                // Widen envelope horizontally but make it a tiny bit less wide
-                // by multiplying uv.x by 1.15 so it fades out just before the edge.
-                float xNorm = min(abs(uv.x * 1.15f), 1.0f);
+                // Taper smoothly at edges
+                float xNorm = min(abs(uv.x * 1.18f), 1.0f);
                 float env = cos(PI*0.5f * xNorm);
+                env = pow(max(env, 0.0f), 1.3f);
                 
-                // When idle, activeFactor is 0, making all amplitudes EXACTLY 0.
-                float dynamicLowAmp = 0.0f + (activeFactor * LOW_AMP * 7.0f);
-                float dynamicMidAmp = 0.0f + (activeFactor * MID_ABAMP * 7.0f);
-                float dynamicHighAmp = 0.0f + (activeFactor * HIGH_ABAMP * 7.0f);
+                // Responsive dynamic amplitudes for talking
+                float dynamicLowAmp = activeFactor * LOW_AMP * 2.6f;
+                float dynamicMidAmp = activeFactor * MID_ABAMP * 2.6f;
+                float dynamicHighAmp = activeFactor * HIGH_ABAMP * 2.6f;
                 
-                float A1    = AMPLITUDE + 0.01f*low*dynamicLowAmp;
-                float A2    = A1 + mid*dynamicMidAmp + high*dynamicHighAmp;
+                // Allows the waves to reach higher when talking while staying low in idle
+                float A1    = min(0.82f, AMPLITUDE + 0.01f*low*dynamicLowAmp);
+                float A2    = min(0.92f, A1 + mid*dynamicMidAmp + high*dynamicHighAmp);
                 float AB    = (ABERRATION + mid*MID_ABER + high*HIGH_ABER)*res;
                 
-                // Allow a tiny bit of rotation (0.15) when idle so colors are visible on the edges
-                AB *= mix(0.15f, 1.0f, clamp(activeFactor * 4.0f, 0.0f, 1.0f));
+                // Keep chromatic rotation active and visible
+                AB *= mix(0.40f, 1.0f, clamp(activeFactor * 3.0f, 0.0f, 1.0f));
                 
-                // Make it thicker when talking
-                float currentThickness = THICKNESS + (activeFactor * 12.0f);
-                float th    = mix(0.1f, 0.01f*currentThickness, res);
+                // Restrained thickness scaling
+                float currentThickness = THICKNESS + (activeFactor * 2.5f);
+                float th    = mix(0.080f, 0.012f*currentThickness, res);
                 float inten = mix(0.1f, 0.01f*(INTENSITY + low*LOW_INT), res);
                 
-                // Add more glow reflection around the wave, but only heavily when idle
-                float idleGlowBoost = 5.5f * (1.0f - clamp(activeFactor * 2.0f, 0.0f, 1.0f));
+                // Controlled luminous glow
+                float idleGlowBoost = 1.3f * (1.0f - clamp(activeFactor * 2.0f, 0.0f, 1.0f));
                 float soft  = 0.01f*res*max(0.0f, SOFTNESS + idleGlowBoost + mid*MID_SOFT);
                 
                 float dUnres = max(length(p) - mix(0.14f, UNRES_SCALE, res), 0.0f);
@@ -182,12 +186,17 @@ public struct SiriMetalView: UIViewRepresentable {
                 float bandAmt    = 1e-4f * BAND_FILL * inten;
                 float3 num = float3(0.0f);
                 float3 den = float3(0.0f);
+                
+                // Dynamic spinning of the spectral ribbons around each other (tight & low when idle)
+                float abSpin = t * 4.8f;
+                float dynamicSpiralAmp = mix(0.35f, 1.65f, clamp(activeFactor * 2.0f, 0.0f, 1.0f));
                 for(int s = 0; s < 4; s++){
-                    float3 hue = mix(float3(1.0f), spectral4(s), res);
+                    float3 hue = mix(float3(0.92f), spectral4(s), res * 0.88f);
                     den += hue;
-                    float ab = mix(-AB, AB, float(s)/3.0f);
+                    float angle = abSpin + float(s) * (PI * 0.5f);
+                    float ab = mix(-AB, AB, float(s)/3.0f) + sin(angle) * (dynamicSpiralAmp * res);
                     float yL = A2 * env * res * sin(p.x*ABER_FREQ + drift + ab);
-                    float d   = mix(dUnres, abs(p.y - yL), res);
+                    float d   = mix(dUnres, abs(p.y - yL) * 0.55f, res);
                     float lor = mix(1.0f/(1.0f + (0.02f*d)*(0.02f*d)), 1.0f, res);
                     float line = inten / (sqrt(d*d + soft*soft) + th);
                     float lo = min(yMain, yL), hi = max(yMain, yL);
@@ -196,19 +205,20 @@ public struct SiriMetalView: UIViewRepresentable {
                     num += hue * lor * (line + band);
                 }
                 float3 col = num / den;
-                float dM    = mix(dUnres, abs(p.y - yMain), res);
+                float dM    = mix(dUnres, abs(p.y - yMain) * 0.55f, res);
                 float lorM  = mix(1.0f/(1.0f + (0.02f*dM)*(0.02f*dM)), 1.0f, res);
                 float boostVal = (1.0f - res) * (14.0f*low + 4.0f);
                 col += 0.5f * inten * (lorM + boostVal) / (sqrt(dM*dM + soft*soft) + th);
-                col = pow(max(col, 0.0f), float3(1.5f));
-                float3 preFadeCol = col; // Save raw vibrant color for the glass edge
+                col = pow(max(col, 0.0f), float3(1.42f));
+                
                 float emT = clamp((abs(yScreen) - 1.0f + EDGE_INSET) / (-max(EDGE_MASK, 1e-4f)), 0.0f, 1.0f);
                 float em  = emT*emT*(3.0f - 2.0f*emT);
                 float gauss = exp(-pow(xN*FALLOFF, 2.0f));
                 col *= mix(1.0f, em*gauss, res);
                 col *= res;
-                col *= 1.0f + (talkingFactor * 1.1f); // Less extreme vibrancy boost when talking
-                col *= 0.78f + (talkingFactor * 0.22f); // Tiny bit less vibrant colors when idle
+                col *= 1.0f + (talkingFactor * 0.12f);
+                col *= 0.82f + (talkingFactor * 0.15f);
+                col *= 1.14f;
                 
                 return half4(half3(col), 1.0);
             }

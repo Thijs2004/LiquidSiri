@@ -1,9 +1,9 @@
 Package: com.yourcompany.liquidsiri
 Name: LiquidSiri
-Depends: mobilesubstrate
-Version: 1.2.2
+Depends: mobilesubstrate, preferenceloader
+Version: 1.7.0
 Architecture: iphoneos-arm64
-Description: Make your dumb siri look smart! Compatible with iOS 14.0 - 16.x.
+Description: Make your Siri look smart with Liquid Glass! Compatible with iOS 14.0 - 16.x.
 Maintainer: Thijs mussig
 Author: Thijs mussig
 Section: Tweaks

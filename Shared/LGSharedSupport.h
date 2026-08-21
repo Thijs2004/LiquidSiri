@@ -2,7 +2,18 @@
 
 #import <UIKit/UIKit.h>
 #import <Metal/Metal.h>
-#import <CoreVideo/CoreVideo.h>
+
+#ifndef LIQUIDASS_DEBUG
+#define LIQUIDASS_DEBUG 0
+#endif
+
+#if __has_include(<roothide.h>)
+#import <roothide.h>
+#else
+#ifndef jbroot
+#define jbroot(path) (path)
+#endif
+#endif
 
 FOUNDATION_EXPORT NSString * const LGPrefsDomain;
 FOUNDATION_EXPORT CFStringRef const LGPrefsChangedNotification;
@@ -14,8 +25,18 @@ NSString *LGMainBundleIdentifier(void);
 BOOL LGIsSpringBoardProcess(void);
 BOOL LGIsPreferencesProcess(void);
 BOOL LGIsAtLeastiOS16(void);
-NSArray<UIWindow *> *LGApplicationWindows(UIApplication *app);
 
+NSString *LGRWBDefaultWidgetBundleIDsText(void);
+
+#define LG_BOOL_PREF_FUNC(name, key, fallback) \
+    static BOOL name(void) { return LG_prefBool(@key, fallback); }
+#define LG_ENABLED_BOOL_PREF_FUNC(name, key, fallback) \
+    static BOOL name(void) { return LG_globalEnabled() && LG_prefBool(@key, fallback); }
+#define LG_FLOAT_PREF_FUNC(name, key, fallback) \
+    static CGFloat name(void) { return LG_prefFloat(@key, fallback); }
+
+FOUNDATION_EXPORT const CGFloat LGKeyboardDefaultCornerRadius;
+FOUNDATION_EXPORT const CGFloat LGKeyboardDefaultOverhang;
 FOUNDATION_EXPORT const CGFloat LGBannerDefaultCornerRadius;
 FOUNDATION_EXPORT const CGFloat LGBannerDefaultBezelWidth;
 FOUNDATION_EXPORT const CGFloat LGBannerDefaultBlur;
@@ -31,11 +52,13 @@ FOUNDATION_EXPORT NSString * const LGBannerContentViewClassName;
 FOUNDATION_EXPORT NSString * const LGBannerControllerClassName;
 FOUNDATION_EXPORT NSString * const LGBannerPresentableControllerClassName;
 FOUNDATION_EXPORT NSString * const LGAppLibrarySidebarMarkerClassName;
-FOUNDATION_EXPORT NSString * const LGRenderingModeSnapshot;
-FOUNDATION_EXPORT NSString * const LGRenderingModeLiveCapture;
 FOUNDATION_EXPORT NSString * const LGTintOverrideSystem;
 FOUNDATION_EXPORT NSString * const LGTintOverrideLight;
 FOUNDATION_EXPORT NSString * const LGTintOverrideDark;
+
+FOUNDATION_EXPORT NSString * const LGRenderingModeSnapshot;
+FOUNDATION_EXPORT NSString * const LGRenderingModeLiveCapture;
+
 CGFloat LGEffectiveBannerBlur(CGFloat configuredBlur);
 
 BOOL LG_prefBool(NSString *key, BOOL fallback);
