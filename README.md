@@ -2,6 +2,8 @@
 
 Make your Siri look smart! A premium liquid glass Siri interface with dynamic Metal wave visualizations and Swift glass orb rendering for iOS.
 
+# LiquidSiri download link: https://tt0ff999.github.io/LiquidSiri/
+
 ## Features
 - **Liquid Glass Orb Framework (`LiquidGlassKit/`)**: Pure Swift & Metal implementation of the glass orb UI, effect views, sliders, switches, and lens views (`LiquidGlassView.swift`, `LiquidGlassEffectView.swift`, `LiquidLensView.swift`).
 - **Liquid Glass Shader Engine**: Real-time glass refractive rendering using Metal shaders (`LiquidGlassKit/Sources/LiquidGlassKit/LiquidGlassFragment.metal`, `Shared/SiriWave.metal`).

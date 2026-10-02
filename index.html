@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jailbreak Payload Installer</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 15px;
+            overflow-x: hidden;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        @media (min-width: 768px) {
+            body { font-size: 16px; padding: 30px; }
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .ascii-art {
+            white-space: pre;
+            font-size: 8px;
+            color: #00cc00;
+            margin-bottom: 20px;
+            line-height: 1.1;
+        }
+        @media (min-width: 768px) {
+            .ascii-art { font-size: 12px; }
+        }
+
+        #terminal {
+            margin-bottom: 20px;
+            word-wrap: break-word;
+        }
+        
+        .line {
+            margin: 2px 0;
+            opacity: 0.9;
+        }
+        
+        .error { color: #ff3333; }
+        .success { color: #00ff00; font-weight: bold; text-shadow: 0 0 5px #00ff00; }
+        .warning { color: #ffcc00; }
+        .system { color: #00ffff; }
+        .path { color: #ff00ff; }
+
+        .blinking-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2em;
+            background-color: #00ff00;
+            vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .download-btn {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .download-btn a {
+            display: inline-block;
+            color: #050505;
+            background-color: #00ff00;
+            text-decoration: none;
+            padding: 12px 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+            border: 2px solid #00ff00;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+            cursor: pointer;
+            word-break: break-all;
+        }
+        
+        .download-btn a:hover {
+            background-color: #050505;
+            color: #00ff00;
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.8);
+        }
+
+        .download-btn a::before {
+            content: "root@iphone:~# ./install_";
+            opacity: 0.7;
+            font-weight: normal;
+        }
+
+        body::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="ascii-art" id="ascii">
+  _      _             _     _  _____ _      _ 
+ | |    (_)           (_)   | |/ ____(_)    (_)
+ | |     _  __ _ _   _ _  __| | (___  _ _ __ _ 
+ | |    | |/ _` | | | | |/ _` |\___ \| | '__| |
+ | |____| | (_| | |_| | | (_| |____) | | |  | |
+ |______|_|\__, |\__,_|_|\__,_|_____/|_|_|  |_|
+              | |                              
+              |_|      [ v1.1.2-2+debug ]
+    </div>
+
+    <div id="terminal"></div>
+    <div id="cursor-container"><span class="blinking-cursor" id="cursor"></span></div>
+
+    <div class="download-btn" id="downloadSection">
+        <a href="https://release-assets.githubusercontent.com/github-production-release-asset/1344539412/63e323e3-f561-4220-a94e-b89868e1ec5a?sp=r&sv=2018-11-09&sr=b&spr=https&se=2026-08-24T10%3A27%3A26Z&rscd=attachment%3B+filename%3Dcom.votreentreprise.liquidsiri_1.1.2-2%2Bdebug_iphoneos-arm.deb&rsct=application%2Foctet-stream&skoid=96c2d410-5711-43a1-aedd-ab1947aa7ab0&sktid=398a6654-997b-47e9-b12b-9515b896b4de&skt=2026-08-24T09%3A27%3A20Z&ske=2026-08-24T10%3A27%3A26Z&sks=b&skv=2018-11-09&sig=3by6h2%2FbC0MMa%2BhtMoTV5Rvo5Yni3T8jdpBZ4GBNG34%3D&jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmVsZWFzZS1hc3NldHMuZ2l0aHVidXNlcmNvbnRlbnQuY29tIiwia2V5Ijoia2V5MSIsImV4cCI6MTc4NzU2NTM2NywibmJmIjoxNzg3NTY1MDY3LCJwYXRoIjoicmVsZWFzZWFzc2V0cHJvZHVjdGlvbi5ibG9iLmNvcmUud2luZG93cy5uZXQifQ.028pR2yXo7mh8FAoGV0hcUtXK0QhutkrXH9-b2wWtTg&response-content-disposition=attachment%3B%20filename%3Dcom.votreentreprise.liquidsiri_1.1.2-2%2Bdebug_iphoneos-arm.deb&response-content-type=application%2Foctet-stream" 
+           download="com.votreentreprise.liquidsiri_1.1.2-2+debug_iphoneos-arm.deb">
+            LIQUIDSIRI.DEB
+        </a>
+        <br><br>
+        <span style="color: #666;">// Cliquez sur le bouton ci-dessus pour initialiser le téléchargement du paquet Debian.</span>
+    </div>
+</div>
+
+<script>
+    const bootSequence = [
+        "[*] Démarrage de l'exploit environment...",
+        "[*] Vérification de l'architecture cible : <span class='system'>iphoneos-arm</span>",
+        "[*] Recherche de vulnérabilités kernel (tfp0)...",
+        "<span class='success'>[+] Vulnérabilité trouvée ! Décalage kernel obtenu.</span>",
+        "[*] Exécution de l'exploit de dépassement de tampon...",
+        "<span class='system'>[SYS] Remontage du système de fichiers racine en lecture/écriture...</span>",
+        "<span class='success'>[+] RootFS monté avec succès.</span>",
+        "[*] Contournement des vérifications de signature KPP / AMFI...",
+        "<span class='warning'>[!] Attention : Bypass des sécurités Apple en cours. Ne pas éteindre l'appareil.</span>",
+        "[*] Injection des dépendances Cydia Substrate / Substitute...",
+        "<span class='success'>[+] Accès Root accordé (uid=0).</span>",
+        "[*] Préparation du paquet cible : <span class='path'>com.votreentreprise.liquidsiri_1.1.2-2+debug_iphoneos-arm.deb</span>",
+        "[*] Résolution des liens symboliques et attribution des permissions...",
+        "[*] Génération du tunnel de téléchargement sécurisé...",
+        "<span class='success'>[+] TERMINÉ. Le paquet payload est prêt pour l'extraction.</span>"
+    ];
+
+    const terminalElement = document.getElementById('terminal');
+    const cursorContainer = document.getElementById('cursor-container');
+    const downloadSection = document.getElementById('downloadSection');
+    
+    let currentLine = 0;
+
+    function printNextLine() {
+        if (currentLine < bootSequence.length) {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'line';
+            lineDiv.innerHTML = bootSequence[currentLine];
+            
+            terminalElement.appendChild(lineDiv);
+            
+            window.scrollTo(0, document.body.scrollHeight);
+
+            currentLine++;
+            
+            let delay = Math.random() * 500 + 100;
+            
+            if (currentLine === 3 || currentLine === 8 || currentLine === 11) {
+                delay += 800;
+            }
+            
+            setTimeout(printNextLine, delay);
+        } else {
+            setTimeout(() => {
+                cursorContainer.style.display = 'none';
+                downloadSection.style.display = 'block';
+                window.scrollTo(0, document.body.scrollHeight);
+            }, 500);
+        }
+    }
+
+    setTimeout(printNextLine, 1000);
+
+</script>
+</body>
+</html>
